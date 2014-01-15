@@ -134,7 +134,7 @@ tsrec_call_func(lua_State *L) {
     lua_rawget(L,2);
     bpath = lua_tostring(L,-1);
     if(bpath == NULL) return tsrec_dispatch_method(L,"",opath);
-    int blen = strlen(bpath);
+    size_t blen = strlen(bpath);
     lua_pop(L,1);
     if(blen > strlen(opath) ||
        strncmp(bpath, opath, blen) ||
@@ -305,7 +305,7 @@ lua_State *luaConfig::open(const char *config_file_path, const char *module) {
   lua_pop(L,1);
 
   luaopen_ats(L);
-  UrlRewrite::luaopen(L);
+  // UrlRewrite::luaopen(L); // TODO: Not available now
   lua_getglobal(L,"require");
   lua_pushstring(L,module);
   if(lua_pcall(L,1,1,0) != 0) {
