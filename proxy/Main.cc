@@ -88,6 +88,7 @@ extern "C" int plock(int);
 #include "RemapProcessor.h"
 #include "I_Tasks.h"
 #include "InkAPIInternal.h"
+#include "luaConfig.h"
 
 #include <ts/ink_cap.h>
 
@@ -314,6 +315,9 @@ initialize_process_manager()
     RecordsConfigOverrideFromEnvironment();
   }
 
+  luaConfigInit();
+
+  //
   // Start up manager
   pmgmt = NEW(new ProcessManager(remote_management_flag));
 
