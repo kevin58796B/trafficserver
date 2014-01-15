@@ -36,49 +36,58 @@
 void luaConfigInit();
 void drop_lua_state_holder(void *);
 
-struct luaConfigStateHolder {
+struct luaConfigStateHolder
+{
 public:
-  luaConfigStateHolder() : active(0), uses_remaining(0) {
+  luaConfigStateHolder():active(0), uses_remaining(0)
+  {
     states[0] = states[1] = NULL;
   }
   lua_State *states[2];
-  int     active;
+  int active;
   int64_t uses_remaining;
 };
 
 class luaConfig
 {
 public:
-  luaConfig(const char *mod) : config_module(mod) {
+  luaConfig(const char *mod):config_module(mod)
+  {
     ink_thread_key_create(&state_key, drop_lua_state_holder);
   }
   void boot();
   void records();
-  inline lua_State *getL() { return getL(-1); }
+  inline lua_State *getL()
+  {
+    return getL(-1);
+  }
   int call(lua_State *, const char *method, int nargs);
-  inline int call(const char *method, int nargs) {
+  inline int call(const char *method, int nargs)
+  {
     return call(getL(), method, nargs);
   }
 
 private:
-  lua_State *open(const char *path, const char *module);
-  inline void setL(int which, lua_State *L) {
+  lua_State * open(const char *path, const char *module);
+  inline void setL(int which, lua_State * L)
+  {
     assert(which >= 0 && which < 2);
     struct luaConfigStateHolder *state_holder;
-    state_holder = (struct luaConfigStateHolder *)ink_thread_getspecific(state_key);
-    if(state_holder == NULL) {
-      state_holder = new struct luaConfigStateHolder();
-      ink_thread_setspecific(state_key, (void *)state_holder);
+    state_holder = (struct luaConfigStateHolder *) ink_thread_getspecific(state_key);
+    if (state_holder == NULL) {
+      state_holder = new struct luaConfigStateHolder ();
+      ink_thread_setspecific(state_key, (void *) state_holder);
     }
     state_holder->states[which] = L;
   }
-  inline lua_State *getL(int which) {
+  inline lua_State *getL(int which)
+  {
     assert(which >= -1 && which < 2);
     struct luaConfigStateHolder *state_holder;
-    state_holder = (struct luaConfigStateHolder *)ink_thread_getspecific(state_key);
-    if(state_holder == NULL) {
-      state_holder = new struct luaConfigStateHolder();
-      ink_thread_setspecific(state_key, (void *)state_holder);
+    state_holder = (struct luaConfigStateHolder *) ink_thread_getspecific(state_key);
+    if (state_holder == NULL) {
+      state_holder = new struct luaConfigStateHolder ();
+      ink_thread_setspecific(state_key, (void *) state_holder);
     }
     return state_holder->states[(which < 0) ? state_holder->active : which];
   }
