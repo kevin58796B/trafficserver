@@ -783,6 +783,13 @@ ssl_extract_certificate(
   return true;
 }
 
+// Convenience
+#define LUAGETF(name) do {                      \
+    lua_getfield(L,-1,#name);                   \
+    name = (char *)lua_tostring(L,1);           \
+    lua_pop(L,1);                               \
+  } while(0)
+
 static int
 SSLUtils_lua_ssl_store_ssl_context(lua_State* L)
 {
@@ -792,20 +799,19 @@ SSLUtils_lua_ssl_store_ssl_context(lua_State* L)
 
   params = (const SSLConfigParams *) lua_touserdata(L, lua_upvalueindex(1));
   lookup = (SSLCertLookup *) lua_touserdata(L, lua_upvalueindex(2));
-#define LUAGETF(name) do { \
-  lua_getfield(L,-1,#name); \
-  name = (char *)lua_tostring(L,1); \
-  lua_pop(L,1); \
-} while(0)
+
   LUAGETF(dest_ip);
   LUAGETF(ssl_key_name);
   LUAGETF(ssl_ca_name);
   LUAGETF(ssl_cert_name);
+
   // TODO: ticket_key_filename stuff should be popped here I think
-  if (!ssl_store_ssl_context(params, lookup, dest_ip, ssl_cert_name, ssl_ca_name, ssl_key_name, -1, ticket_key_filename))
+  if (!ssl_store_ssl_context(params, lookup, dest_ip, ssl_cert_name, ssl_ca_name, ssl_key_name, -1, ticket_key_filename)) {
     lua_pushboolean(L,0);
-  else
+  } else {
     lua_pushboolean(L,1);
+  }
+
   return 1;
 }
 
@@ -825,10 +831,8 @@ SSLParseCertificateConfiguration(const SSLConfigParams* params, SSLCertLookup* l
   xptr<char>  file_buf;
   unsigned    line_num = 0;
   matcher_line line_info;
-
   bool alarmAlready = false;
   char errBuf[1024];
-
   const matcher_tags sslCertTags = {
     NULL, NULL, NULL, NULL, NULL, NULL, false
   };
@@ -889,6 +893,7 @@ SSLParseCertificateConfiguration(const SSLConfigParams* params, SSLCertLookup* l
 
  
   lua_State *L = globalLuaConfig.getL(); 
+
   SSLUtils_lua_ssl_context(L, params, lookup);
   globalLuaConfig.call(L, "config_ssl", 1);
 

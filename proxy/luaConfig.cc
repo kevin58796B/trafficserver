@@ -26,7 +26,6 @@
 #include "I_Layout.h"
 #include "I_RecDefs.h"
 #include "I_RecCore.h"
-#include "P_RecCore.h"
 #include "UrlRewrite.h"
 
 luaConfig globalLuaConfig("tsconfig");
@@ -43,23 +42,31 @@ tsrec_index_func(lua_State * L)
 {
   const char *opath = NULL;
   char path[1024];
+
   assert(lua_gettop(L) == 2);
+
   if (!strcmp(lua_tostring(L, 2), "_path"))
     return 0;
+
   lua_pushvalue(L, 2);
   lua_rawget(L, 1);
+
   if (lua_istable(L, -1))
     return 1;
+
   lua_pop(L, 1);
 
   lua_pushstring(L, "_path");
   lua_rawget(L, 1);
-  if (lua_isstring(L, -1))
+  if (lua_isstring(L, -1)) {
     opath = lua_tostring(L, -1);
-  if (opath == NULL)
+  }
+
+  if (opath == NULL) {
     snprintf(path, sizeof(path), "%s", lua_tostring(L, 2));
-  else
+  } else {
     snprintf(path, sizeof(path), "%s.%s", opath, lua_tostring(L, 2));
+  }
 
   lua_newtable(L);
   lua_pushstring(L, path);
@@ -71,6 +78,7 @@ tsrec_index_func(lua_State * L)
   lua_pushvalue(L, 2);          /* requested name */
   lua_pushvalue(L, -2);
   lua_rawset(L, 1);
+
   return 1;
 }
 
@@ -79,6 +87,7 @@ tsrec_next_record(lua_State * L)
 {
   RecRecord *r = NULL;
   int *idx, i, num_records, upidx;
+
   upidx = lua_upvalueindex(1);
   idx = (int *) lua_touserdata(L, upidx);
   i = *idx;
@@ -88,12 +97,16 @@ tsrec_next_record(lua_State * L)
   num_records = g_num_records;
   for (; i < num_records; i++) {
     r = &(g_records[i]);
+
     if (REC_TYPE_IS_CONFIG(r->rec_type))
       break;
+
     r = NULL;
   }
+
   if (r != NULL)
     rec_mutex_acquire(&(r->lock));
+
   ink_mutex_release(&g_rec_config_lock);
   *idx = i + 1;
 
@@ -107,6 +120,7 @@ tsrec_next_record(lua_State * L)
     rec_mutex_release(&(r->lock));
     return 1;
   }
+
   return 0;
 }
 
@@ -123,6 +137,7 @@ tsrec_dispatch_method(lua_State * L, const char *bpath, const char *method)
     return 1;
   }
   luaL_error(L, "unknown method call: %s", method);
+
   return 0;
 }
 
@@ -133,6 +148,7 @@ tsrec_call_func(lua_State * L)
   RecDataT data_type;
   const char *opath = NULL;
   int nargs = lua_gettop(L);
+
   lua_pushstring(L, "_path");
   lua_rawget(L, 1);
   opath = lua_tostring(L, -1);
@@ -140,23 +156,30 @@ tsrec_call_func(lua_State * L)
 
   if (lua_istable(L, 2)) {
     const char *bpath;
+
     lua_pushstring(L, "_path");
     lua_rawget(L, 2);
     bpath = lua_tostring(L, -1);
-    if (bpath == NULL)
+    if (bpath == NULL) {
       return tsrec_dispatch_method(L, "", opath);
+    }
+
     size_t blen = strlen(bpath);
+
     lua_pop(L, 1);
     if (blen > strlen(opath) || strncmp(bpath, opath, blen) || opath[blen] != '.') {
       luaL_error(L, "impossible method call: %s", opath + blen + 1);
     }
+
     return tsrec_dispatch_method(L, bpath, opath + blen + 1);
   }
 
   if (RecGetRecordType(opath, &rec_type))
     luaL_error(L, "Could not find record type '%s'", opath);
+
   if (RecGetRecordDataType(opath, &data_type))
     luaL_error(L, "Could not find record data type '%s'", opath);
+
   if (nargs == 1) {
     /* return the value */
     switch (data_type) {
@@ -209,6 +232,7 @@ tsrec_call_func(lua_State * L)
     luaL_error(L, "Unknown type of record: %s", opath);
     break;
   }
+
   return 0;
 }
 
@@ -216,6 +240,7 @@ static int
 lua_ats_log(lua_State * L)
 {
   int type = lua_tointeger(L, lua_upvalueindex(1));
+
   switch (type) {
   case 0:
     Error("%s", lua_tostring(L, 1));
@@ -242,8 +267,16 @@ lua_ats_log(lua_State * L)
     luaL_error(L, "unknown internal log type");
     break;
   }
+
   return 0;
 }
+
+// Convenience
+#define mkLog(id,name) do {                     \
+    lua_pushinteger(L,id);                      \
+    lua_pushcclosure(L, lua_ats_log, 1);        \
+    lua_setfield(L, -2, #name);                 \
+  } while(0)
 
 void
 luaopen_ats(lua_State * L)
@@ -267,11 +300,7 @@ luaopen_ats(lua_State * L)
   lua_setfield(L, -2, "config");
 
   lua_newtable(L);
-#define mkLog(id,name) do { \
-  lua_pushinteger(L,id); \
-  lua_pushcclosure(L, lua_ats_log, 1); \
-  lua_setfield(L, -2, #name); \
-} while(0)
+
   mkLog(0, error);
   mkLog(1, warning);
   mkLog(2, note);
@@ -279,6 +308,7 @@ luaopen_ats(lua_State * L)
   mkLog(4, emergency);
   mkLog(5, fatal);
   mkLog(6, debug);
+
   lua_setfield(L, -2, "log");
 }
 
@@ -287,12 +317,15 @@ luaConfig::records()
 {
   int rv;
   lua_State *L = getL();
+
   lua_getglobal(L, "tsconfig");
   lua_getfield(L, -1, "config");
+
   if (lua_isnil(L, -1)) {
     lua_pop(L, 1);
     return;
   }
+
   rv = lua_pcall(L, 0, 1, 0);
   if (rv != 0) {
     ink_error("tsconfig.config() failed: %s\n", lua_tostring(L, -1));
@@ -304,6 +337,7 @@ void
 drop_lua_state_holder(void *vls)
 {
   struct luaConfigStateHolder *state_holder = (struct luaConfigStateHolder *) vls;
+
   lua_close(state_holder->states[0]);
   lua_close(state_holder->states[1]);
 }
@@ -311,12 +345,13 @@ drop_lua_state_holder(void *vls)
 void
 luaConfig::boot()
 {
+  char system_config_directory[PATH_NAME_MAX + 1];      // Layout->sysconfdir
+  char config_file_path[PATH_NAME_MAX + 1];
+
   assert(state_holder.states[0] == NULL);
   assert(state_holder.states[1] == NULL);
-  char system_config_directory[PATH_NAME_MAX + 1];      // Layout->sysconfdir
   ink_strlcpy(system_config_directory, Layout::get()->sysconfdir, PATH_NAME_MAX);
 
-  char config_file_path[PATH_NAME_MAX];
   config_file_path[0] = '\0';
   ink_strlcpy(config_file_path, system_config_directory, sizeof(config_file_path));
   ink_strlcat(config_file_path, "/?.lua", sizeof(config_file_path));
@@ -328,26 +363,30 @@ lua_State *
 luaConfig::open(const char *config_file_path, const char *module)
 {
   lua_State *L = luaL_newstate();
+
   if (L == NULL) {
     printf("[TrafficServer] failed to initialized lua.\n");
     exit(1);
   }
-  luaL_openlibs(L);
 
+  luaL_openlibs(L);
   lua_getglobal(L, "package");
   lua_pushstring(L, config_file_path);
   lua_setfield(L, -2, "path");
   lua_pop(L, 1);
 
   luaopen_ats(L);
-  // UrlRewrite::luaopen(L); // TODO: Not available now
+  // TODO: This must be reactivated!
+  // UrlRewrite::luaopen(L);
   lua_getglobal(L, "require");
   lua_pushstring(L, module);
+
   if (lua_pcall(L, 1, 1, 0) != 0) {
     printf("[TrafficServer] failed to run lua config '%s'\n%s", config_file_path, lua_tostring(L, -1));
     exit(1);
   }
   lua_pop(L, lua_gettop(L));
+
   return L;
 }
 
@@ -360,12 +399,15 @@ luaConfig::call(lua_State * L, const char *method, int nargs)
     lua_pop(L, 2);
     return -1;
   }
+
   lua_remove(L, -2);
   lua_insert(L, 0 - (nargs + 1));
+
   if (lua_pcall(L, nargs, 0, 0) != 0) {
     Error("lua call(%s) failed: %s\n", method, lua_tostring(L, -1));
     return -1;
   }
+
   return 0;
 }
 
