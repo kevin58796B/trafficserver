@@ -223,10 +223,9 @@ NetAccept::init_accept_per_thread()
   NetAccept *a;
   n = eventProcessor.n_threads_for_type[ET_NET];
   for (i = 0; i < n; i++) {
-    if (i < n - 1) {
-      a = NEW(new NetAccept);
-      *a = *this;
-    } else
+    if (i < n - 1)
+      a = clone();
+    else
       a = this;
     EThread *t = eventProcessor.eventthread[ET_NET][i];
     PollDescriptor *pd = get_PollDescriptor(t);
@@ -237,6 +236,14 @@ NetAccept::init_accept_per_thread()
   }
 }
 
+NetAccept *
+NetAccept::clone()
+{
+  NetAccept *na;
+  na = NEW(new NetAccept);
+  *na = *this;
+  return na;
+}
 
 int
 NetAccept::do_listen(bool non_blocking, bool transparent)
@@ -264,6 +271,20 @@ NetAccept::do_listen(bool non_blocking, bool transparent)
   return res;
 }
 
+UnixNetVConnection *
+NetAccept::createSuitableVC(EThread *t, Connection &con)
+{
+  UnixNetVConnection *vc;
+
+  if (t)
+    vc = allocateThread(t);
+  else
+    vc = allocateGlobal();
+
+  vc->con = con;
+
+  return vc;
+}
 
 int
 NetAccept::do_blocking_accept(EThread * t)
@@ -271,18 +292,11 @@ NetAccept::do_blocking_accept(EThread * t)
   int res = 0;
   int loop = accept_till_done;
   UnixNetVConnection *vc = NULL;
+  Connection con;
 
   //do-while for accepting all the connections
   //added by YTS Team, yamsat
   do {
-    vc = (UnixNetVConnection *)alloc_cache;
-    if (likely(!vc)) {
-      //vc = allocateThread(t);
-      vc = allocateGlobal(); // Bypass proxy / thread allocator
-      vc->from_accept_thread = true;
-      vc->id = net_next_connection_number();
-      alloc_cache = vc;
-    }
     ink_hrtime now = ink_get_hrtime();
 
     // Throttle accepts
@@ -297,7 +311,7 @@ NetAccept::do_blocking_accept(EThread * t)
       now = ink_get_hrtime();
     }
 
-    if ((res = server.accept(&vc->con)) < 0) {
+    if ((res = server.accept(&con)) < 0) {
     Lerror:
       int seriousness = accept_error_seriousness(res);
       if (seriousness >= 0) {   // not so bad
@@ -314,8 +328,18 @@ NetAccept::do_blocking_accept(EThread * t)
       }
       return -1;
     }
-    check_emergency_throttle(vc->con);
+
+    // Use 'NULL' to Bypass thread allocator
+    vc = createSuitableVC(NULL, con);
+    if (!vc) {
+      con.close();
+      return -1;
+    }
+    vc->from_accept_thread = true;
+    vc->id = net_next_connection_number();
     alloc_cache = NULL;
+
+    check_emergency_throttle(con);
 
     NET_SUM_GLOBAL_DYN_STAT(net_connections_currently_open_stat, 1);
     vc->submit_time = now;
@@ -383,6 +407,7 @@ NetAccept::acceptFastEvent(int event, void *ep)
   (void) event;
   (void) e;
   int bufsz, res;
+  Connection con;
 
   PollDescriptor *pd = get_PollDescriptor(e->ethread);
   UnixNetVConnection *vc = NULL;
@@ -393,10 +418,10 @@ NetAccept::acceptFastEvent(int event, void *ep)
       ifd = -1;
       return EVENT_CONT;
     }
-    vc = allocateThread(e->ethread);
 
-    socklen_t sz = sizeof(vc->con.addr);
-    int fd = socketManager.accept(server.fd, &vc->con.addr.sa, &sz);
+    socklen_t sz = sizeof(con.addr);
+    int fd = socketManager.accept(server.fd, &con.addr.sa, &sz);
+    con.fd = fd;
 
     if (likely(fd >= 0)) {
       Debug("iocore_net", "accepted a new socket: %d", fd);
@@ -442,6 +467,13 @@ NetAccept::acceptFastEvent(int event, void *ep)
       do {
         res = safe_nonblocking(fd);
       } while (res < 0 && (errno == EAGAIN || errno == EINTR));
+
+      vc = createSuitableVC(e->ethread, con);
+      if (!vc) {
+        con.close();
+        goto Ldone;
+      }
+
     } else {
       res = fd;
     }
@@ -452,20 +484,15 @@ NetAccept::acceptFastEvent(int event, void *ep)
           || res == -EPIPE
 #endif
         ) {
-        ink_assert(vc->con.fd == NO_FD);
-        ink_assert(!vc->link.next && !vc->link.prev);
-        freeThread(vc, e->ethread);
         goto Ldone;
       } else if (accept_error_seriousness(res) >= 0) {
         check_transient_accept_error(res);
-        freeThread(vc, e->ethread);
         goto Ldone;
       }
       if (!action_->cancelled)
         action_->continuation->handleEvent(EVENT_ERROR, (void *)(intptr_t)res);
       goto Lerror;
     }
-    vc->con.fd = fd;
 
     NET_SUM_GLOBAL_DYN_STAT(net_connections_currently_open_stat, 1);
     vc->id = net_next_connection_number();

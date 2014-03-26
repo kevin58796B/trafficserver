@@ -43,7 +43,7 @@ Apache Traffic Server releases.
   cacheurl.en
   conf_remap.en
   gzip.en
-  header_filter.en
+  header_rewrite.en
   regex_remap.en
   stats_over_http.en
 
@@ -69,8 +69,9 @@ directory of the Apache Traffic Server source tree. Exmperimental plugins can be
   esi.en
   geoip_acl.en
   hipes.en
-  metafilter.en
+  metalink.en
   mysql_remap.en
+  s3_auth.en
   stale_while_revalidate.en
   ts_lua.en
   xdebug.en

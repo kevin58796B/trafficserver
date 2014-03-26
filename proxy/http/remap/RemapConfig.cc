@@ -663,50 +663,50 @@ remap_load_plugin(const char ** argv, int argc, url_mapping *mp, char *errbuf, i
     }
     Debug("remap_plugin", "New remap plugin info created for \"%s\"", c);
 
-    if ((pi->dlh = dlopen(c, RTLD_NOW)) == NULL) {
-#if defined(freebsd) || defined(openbsd)
-      err = (char *)dlerror();
-#else
-      err = dlerror();
-#endif
-      snprintf(errbuf, errbufsize, "Can't load plugin \"%s\" - %s", c, err ? err : "Unknown dlopen() error");
-      return -4;
-    }
-    pi->fp_tsremap_init = (remap_plugin_info::_tsremap_init *) dlsym(pi->dlh, TSREMAP_FUNCNAME_INIT);
-    pi->fp_tsremap_done = (remap_plugin_info::_tsremap_done *) dlsym(pi->dlh, TSREMAP_FUNCNAME_DONE);
-    pi->fp_tsremap_new_instance = (remap_plugin_info::_tsremap_new_instance *) dlsym(pi->dlh, TSREMAP_FUNCNAME_NEW_INSTANCE);
-    pi->fp_tsremap_delete_instance = (remap_plugin_info::_tsremap_delete_instance *) dlsym(pi->dlh, TSREMAP_FUNCNAME_DELETE_INSTANCE);
-    pi->fp_tsremap_do_remap = (remap_plugin_info::_tsremap_do_remap *) dlsym(pi->dlh, TSREMAP_FUNCNAME_DO_REMAP);
-    pi->fp_tsremap_os_response = (remap_plugin_info::_tsremap_os_response *) dlsym(pi->dlh, TSREMAP_FUNCNAME_OS_RESPONSE);
-
-    if (!pi->fp_tsremap_init) {
-      snprintf(errbuf, errbufsize, "Can't find \"%s\" function in remap plugin \"%s\"", TSREMAP_FUNCNAME_INIT, c);
-      retcode = -10;
-    } else if (!pi->fp_tsremap_new_instance) {
-      snprintf(errbuf, errbufsize, "Can't find \"%s\" function in remap plugin \"%s\"",
-                   TSREMAP_FUNCNAME_NEW_INSTANCE, c);
-      retcode = -11;
-    } else if (!pi->fp_tsremap_do_remap) {
-      snprintf(errbuf, errbufsize, "Can't find \"%s\" function in remap plugin \"%s\"", TSREMAP_FUNCNAME_DO_REMAP, c);
-      retcode = -12;
-    }
-    if (retcode) {
-      if (errbuf && errbufsize > 0)
-        Debug("remap_plugin", "%s", errbuf);
-      dlclose(pi->dlh);
-      pi->dlh = NULL;
-      return retcode;
-    }
-    memset(&ri, 0, sizeof(ri));
-    ri.size = sizeof(ri);
-    ri.tsremap_version = TSREMAP_VERSION;
-
     // elevate the access to read files as root if compiled with capabilities, if not
     // change the effective user to root
     {
       uint32_t elevate_access = 0;
       REC_ReadConfigInteger(elevate_access, "proxy.config.plugin.load_elevated");
       ElevateAccess access(elevate_access != 0);
+
+      if ((pi->dlh = dlopen(c, RTLD_NOW)) == NULL) {
+#if defined(freebsd) || defined(openbsd)
+        err = (char *)dlerror();
+#else
+        err = dlerror();
+#endif
+        snprintf(errbuf, errbufsize, "Can't load plugin \"%s\" - %s", c, err ? err : "Unknown dlopen() error");
+        return -4;
+      }
+      pi->fp_tsremap_init = (remap_plugin_info::_tsremap_init *) dlsym(pi->dlh, TSREMAP_FUNCNAME_INIT);
+      pi->fp_tsremap_done = (remap_plugin_info::_tsremap_done *) dlsym(pi->dlh, TSREMAP_FUNCNAME_DONE);
+      pi->fp_tsremap_new_instance = (remap_plugin_info::_tsremap_new_instance *) dlsym(pi->dlh, TSREMAP_FUNCNAME_NEW_INSTANCE);
+      pi->fp_tsremap_delete_instance = (remap_plugin_info::_tsremap_delete_instance *) dlsym(pi->dlh, TSREMAP_FUNCNAME_DELETE_INSTANCE);
+      pi->fp_tsremap_do_remap = (remap_plugin_info::_tsremap_do_remap *) dlsym(pi->dlh, TSREMAP_FUNCNAME_DO_REMAP);
+      pi->fp_tsremap_os_response = (remap_plugin_info::_tsremap_os_response *) dlsym(pi->dlh, TSREMAP_FUNCNAME_OS_RESPONSE);
+
+      if (!pi->fp_tsremap_init) {
+        snprintf(errbuf, errbufsize, "Can't find \"%s\" function in remap plugin \"%s\"", TSREMAP_FUNCNAME_INIT, c);
+        retcode = -10;
+      } else if (!pi->fp_tsremap_new_instance) {
+        snprintf(errbuf, errbufsize, "Can't find \"%s\" function in remap plugin \"%s\"",
+            TSREMAP_FUNCNAME_NEW_INSTANCE, c);
+        retcode = -11;
+      } else if (!pi->fp_tsremap_do_remap) {
+        snprintf(errbuf, errbufsize, "Can't find \"%s\" function in remap plugin \"%s\"", TSREMAP_FUNCNAME_DO_REMAP, c);
+        retcode = -12;
+      }
+      if (retcode) {
+        if (errbuf && errbufsize > 0)
+          Debug("remap_plugin", "%s", errbuf);
+        dlclose(pi->dlh);
+        pi->dlh = NULL;
+        return retcode;
+      }
+      memset(&ri, 0, sizeof(ri));
+      ri.size = sizeof(ri);
+      ri.tsremap_version = TSREMAP_VERSION;
 
       if (pi->fp_tsremap_init(&ri, tmpbuf, sizeof(tmpbuf) - 1) != TS_SUCCESS) {
         Warning("Failed to initialize plugin %s (non-zero retval) ... bailing out", pi->path);
@@ -768,14 +768,7 @@ remap_load_plugin(const char ** argv, int argc, url_mapping *mp, char *errbuf, i
   Debug("remap_plugin", "creating new plugin instance");
 
   TSReturnCode res = TS_ERROR;
-  // elevate the access to read files as root if compiled with capabilities, if not
-  // change the effective user to root
-  {
-    uint32_t elevate_access = 0;
-    REC_ReadConfigInteger(elevate_access, "proxy.config.plugin.load_elevated");
-    ElevateAccess access(elevate_access != 0);
-    res = pi->fp_tsremap_new_instance(parc, parv, &ih, tmpbuf, sizeof(tmpbuf) - 1);
-  } // done elevating access
+  res = pi->fp_tsremap_new_instance(parc, parv, &ih, tmpbuf, sizeof(tmpbuf) - 1);
 
   Debug("remap_plugin", "done creating new plugin instance");
 
@@ -1089,12 +1082,23 @@ remap_parse_config_bti(const char * path, BUILD_TABLE_INFO * bti)
     // includes support for FILE scheme
     if ((fromScheme != URL_SCHEME_HTTP && fromScheme != URL_SCHEME_HTTPS &&
          fromScheme != URL_SCHEME_FILE &&
-         fromScheme != URL_SCHEME_TUNNEL) ||
+         fromScheme != URL_SCHEME_TUNNEL &&
+         fromScheme != URL_SCHEME_WS &&
+         fromScheme != URL_SCHEME_WSS) ||
         (toScheme != URL_SCHEME_HTTP && toScheme != URL_SCHEME_HTTPS &&
-         toScheme != URL_SCHEME_TUNNEL)) {
-      errStr = "Only http, https, and tunnel remappings are supported";
+         toScheme != URL_SCHEME_TUNNEL && toScheme != URL_SCHEME_WS &&
+         toScheme != URL_SCHEME_WSS)) {
+      errStr = "Only http, https, ws, wss, and tunnel remappings are supported";
       goto MAP_ERROR;
     }
+
+    // If mapping from WS or WSS we must map out to WS or WSS
+    if ( (fromScheme == URL_SCHEME_WSS || fromScheme == URL_SCHEME_WS) &&
+         (toScheme != URL_SCHEME_WSS && toScheme != URL_SCHEME_WS)) {
+      errStr = "WS or WSS can only be mapped out to WS or WSS.";
+      goto MAP_ERROR;
+    }
+
     // Check if a tag is specified.
     if (bti->paramv[3] != NULL) {
       if (maptype == FORWARD_MAP_REFERER) {

@@ -291,6 +291,20 @@ Bounce(bool cluster)
   return TS_ERR_OKAY;
 }
 
+/*-------------------------------------------------------------------------
+ * StorageDeviceCmdOffline
+ *-------------------------------------------------------------------------
+ * Disable a storage device.
+ * [amc] I don't think this is called but is required because of the way the
+ * CoreAPI is linked (it must match the remote CoreAPI signature so compiling
+ * this source or CoreAPIRemote.cc yields the same set of symbols).
+ */
+TSError
+StorageDeviceCmdOffline(char const* dev)
+{
+  lmgmt->signalEvent(MGMT_EVENT_STORAGE_DEVICE_CMD_OFFLINE, dev);
+  return TS_ERR_OKAY;
+}
 /**************************************************************************
  * RECORD OPERATIONS
  *************************************************************************/
@@ -369,6 +383,15 @@ MgmtRecordGet(const char *rec_name, TSRecordEle * rec_ele)
   return TS_ERR_OKAY;
 }
 
+// This is not implemented in the Core side of the API because we don't want
+// to buffer up all the matching records in memory. We stream the records
+// directory onto the management socket in handle_record_match(). This stub
+// is just here for link time dependencies.
+TSError
+MgmtRecordGetMatching(const char * /* regex */, TSList /* rec_vals */)
+{
+  return TS_ERR_FAIL;
+}
 
 /*-------------------------------------------------------------------------
  * reads the RecordsConfig info to determine which type of action is needed

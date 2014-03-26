@@ -42,6 +42,8 @@
 int SSLConfig::configid = 0;
 int SSLCertificateConfig::configid = 0;
 int SSLConfigParams::ssl_maxrecord = 0;
+bool SSLConfigParams::ssl_allow_client_renegotiation = false;
+init_ssl_ctx_func SSLConfigParams::init_ssl_ctx_cb = NULL;
 
 static ConfigUpdateHandler<SSLCertificateConfig> * sslCertUpdate;
 
@@ -148,12 +150,19 @@ SSLConfigParams::initialize()
   REC_ReadConfigInteger(options, "proxy.config.ssl.TLSv1");
   if (!options)
     ssl_ctx_options |= SSL_OP_NO_TLSv1;
+
+  // These are not available in all versions of OpenSSL (e.g. CentOS6). Also see http://s.apache.org/TS-2355.
+#ifdef SSL_OP_NO_TLSv1_1
   REC_ReadConfigInteger(options, "proxy.config.ssl.TLSv1_1");
   if (!options)
     ssl_ctx_options |= SSL_OP_NO_TLSv1_1;
+#endif
+#ifdef SSL_OP_NO_TLSv1_2
   REC_ReadConfigInteger(options, "proxy.config.ssl.TLSv1_2");
   if (!options)
     ssl_ctx_options |= SSL_OP_NO_TLSv1_2;
+#endif
+
 #ifdef SSL_OP_CIPHER_SERVER_PREFERENCE
   REC_ReadConfigInteger(options, "proxy.config.ssl.server.honor_cipher_order");
   if (options)
@@ -232,11 +241,12 @@ SSLConfigParams::initialize()
   ats_free_null(ssl_client_private_key_filename);
   ats_free_null(ssl_client_private_key_path);
 
-
   REC_ReadConfigStringAlloc(clientCACertFilename, "proxy.config.ssl.client.CA.cert.filename");
   REC_ReadConfigStringAlloc(clientCACertRelativePath, "proxy.config.ssl.client.CA.cert.path");
   set_paths_helper(clientCACertRelativePath, clientCACertFilename, &clientCACertPath, &clientCACertFilename);
   ats_free(clientCACertRelativePath);
+
+  REC_ReadConfigInt32(ssl_allow_client_renegotiation, "proxy.config.ssl.allow_client_renegotiation");
 }
 
 void
@@ -283,6 +293,14 @@ SSLCertificateConfig::reconfigure()
 {
   SSLConfig::scoped_config params;
   SSLCertLookup * lookup = NEW(new SSLCertLookup());
+
+  // Test SSL certificate loading startup. With large numbers of certificates, reloading can take time, so delay
+  // twice the healthcheck period to simulate a loading a large certificate set.
+  if (is_action_tag_set("test.multicert.delay")) {
+    const int secs = 60;
+    Debug("ssl", "delaying certificate reload by %dsecs", secs);
+    ink_hrtime_sleep(HRTIME_SECONDS(secs));
+  }
 
   if (SSLParseCertificateConfiguration(params, lookup)) {
     configid = configProcessor.set(configid, lookup);

@@ -67,6 +67,7 @@ if BUILD_TESTS
   noinst_PROGRAMS = traffic_api_cli_remote
 endif
 
+libtsmgmtshare_la_LDFLAGS = -version-info @TS_LIBTOOL_VERSION@
 
 libtsmgmt_la_LDFLAGS = -version-info @TS_LIBTOOL_VERSION@
 libtsmgmt_la_LIBADD = @LIBOBJS@ \
@@ -88,4 +89,4 @@ traffic_api_cli_remote_LDADD = \
   libtsmgmtshare.la \
   libtsmgmt.la \
   $(top_builddir)/lib/ts/libtsutil.la \
-  @LIBTCL@ @LIBSSL@
+  @LIBTCL@ @OPENSSL_LIBS@

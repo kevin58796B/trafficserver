@@ -1026,6 +1026,12 @@ extern "C"
  */
   tsapi TSError TSBounce(bool cluster);
 
+/* TSStorageDeviceOp: Request an operation on a storage device.
+ * @arg dev Target device, specified by path to device.
+ * @return Success.
+ */
+  tsapi TSError TSStorageDeviceCmdOffline(char const* dev);
+
 /*--- diags output operations ---------------------------------------------*/
 /* TSDiags: enables users to manipulate run-time diagnostics, and print
  *           user-formatted notices, warnings and errors
@@ -1167,6 +1173,12 @@ extern "C"
  * Output: TSError
  */
   tsapi TSError TSRecordGetMlt(TSStringList rec_names, TSList rec_vals);
+
+/* TSRecordGetMatchMlt: gets a set of records
+ * Input:  rec_regex - regular expression to match against record names
+ * Output: TSError, TSList of TSRecordEle
+ */
+  tsapi TSError TSRecordGetMatchMlt(const char *rec_regex, TSList list);
 
 /* TSRecordSet*: sets a record w/ a known type
  * Input:  rec_name     - the name of the record (proxy.config.record_name)
@@ -1337,7 +1349,7 @@ extern "C"
  */
   TSError TSCfgContextMoveEleDown(TSCfgContext ctx, int index);
 
-/* TSCfgContextAppendEle: apppends the ele to the end of the TSCfgContext
+/* TSCfgContextAppendEle: appends the ele to the end of the TSCfgContext
  * Input:  ctx   - the TSCfgContext
  *         ele - the Ele (typecasted as an TSCfgEle) to append to ctx
  * Output: TSError

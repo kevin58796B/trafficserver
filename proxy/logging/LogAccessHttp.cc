@@ -139,6 +139,15 @@ LogAccessHttp::init()
   -------------------------------------------------------------------------*/
 
 int
+LogAccessHttp::marshal_client_protocol_stack(char *buf)
+{
+  if (buf) {
+    marshal_int(buf, m_http_sm->proto_stack);
+  }
+  return INK_MIN_ALIGN;
+}
+
+int
 LogAccessHttp::marshal_client_host_ip(char *buf)
 {
   return marshal_ip(buf, &m_http_sm->t_state.client_info.addr.sa);
@@ -728,40 +737,6 @@ LogAccessHttp::marshal_server_host_name(char *buf)
     if (str)
       padded_len = round_strlen(actual_len + 1);        // +1 for trailing 0
   }
-  if (buf) {
-    marshal_mem(buf, str, actual_len, padded_len);
-  }
-  return padded_len;
-}
-
-
-/*-------------------------------------------------------------------------
-  -------------------------------------------------------------------------*/
-
-int
-LogAccessHttp::marshal_client_accelerator_id(char *buf)
-{
-  char *str = NULL;
-  int padded_len = INK_MIN_ALIGN;
-  int actual_len = 0;
-
-  if (Log::config->xuid_logging_enabled) {
-    if (m_client_request) {
-      MIMEField *field = m_client_request->field_find(MIME_FIELD_X_ID, MIME_LEN_X_ID);
-
-      if (field) {
-        str = (char *) field->value_get(&actual_len);
-        /* Ugly subtlety here. marshal_mem, despite the name, adds a
-           terminating nul. It does this at the index actual_len and
-           so requires paddedlen > actual_len (why it can't do the
-           padding calculation escapes me - are there instances where
-           that's different?
-        */
-        padded_len = round_strlen(actual_len+1);
-      }
-    }
-  }
-
   if (buf) {
     marshal_mem(buf, str, actual_len, padded_len);
   }

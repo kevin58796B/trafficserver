@@ -64,7 +64,7 @@ HttpClientSession::HttpClientSession()
     read_buffer(NULL), current_reader(NULL), read_state(HCS_INIT),
     ka_vio(NULL), slave_ka_vio(NULL),
     cur_hook_id(TS_HTTP_LAST_HOOK), cur_hook(NULL),
-    cur_hooks(0), proxy_allocated(false), backdoor_connect(false),
+    cur_hooks(0), backdoor_connect(false),
     hooks_set(0),
     outbound_port(0), f_outbound_transparent(false),
     host_res_style(HOST_RES_IPV4), acl_method_mask(0),
@@ -107,10 +107,7 @@ void
 HttpClientSession::destroy()
 {
   this->cleanup();
-  if (proxy_allocated)
-    THREAD_FREE(this, httpClientSessionAllocator, this_thread());
-  else
-    httpClientSessionAllocator.free(this);
+  THREAD_FREE(this, httpClientSessionAllocator, this_thread());
 }
 
 HttpClientSession *
@@ -154,6 +151,7 @@ HttpClientSession::new_transaction()
   transact_count++;
   DebugSsn("http_cs", "[%" PRId64 "] Starting transaction %d using sm [%" PRId64 "]", con_id, transact_count, current_reader->sm_id);
 
+  current_reader->proto_stack = client_vc->proto_stack;
   current_reader->attach_client_session(this, sm_reader);
 }
 
@@ -285,6 +283,7 @@ HttpClientSession::do_io_close(int alerrno)
       HTTP_DECREMENT_DYN_STAT(http_current_active_client_connections_stat);
     }
   }
+
   // Prevent double closing
   ink_release_assert(read_state != HCS_CLOSED);
 
@@ -475,7 +474,7 @@ HttpClientSession::state_api_callout(int event, void * /* data ATS_UNUSED */)
           plugin_lock = MUTEX_TAKE_TRY_LOCK(cur_hook->m_cont->mutex, mutex->thread_holding);
           if (!plugin_lock) {
             SET_HANDLER(&HttpClientSession::state_api_callout);
-            mutex->thread_holding->schedule_in(this, HRTIME_MSECONDS(10), ET_NET);
+            mutex->thread_holding->schedule_in(this, HRTIME_MSECONDS(10));
             return 0;
           }
         } else {

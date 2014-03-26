@@ -118,6 +118,8 @@ extern "C" int plock(int);
 static const long MAX_LOGIN =  sysconf(_SC_LOGIN_NAME_MAX) <= 0 ? _POSIX_LOGIN_NAME_MAX :  sysconf(_SC_LOGIN_NAME_MAX);
 
 static void * mgmt_restart_shutdown_callback(void *, char *, int data_len);
+static void*  mgmt_storage_device_cmd_callback(void* x, char* data, int len);
+static void init_ssl_ctx_callback(void *ctx, bool server);
 
 static int version_flag = DEFAULT_VERSION_FLAG;
 
@@ -329,13 +331,13 @@ initialize_process_manager()
   //
   // Define version info records
   //
-  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.short", appVersionInfo.VersionStr, RECP_NULL);
-  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.long", appVersionInfo.FullVersionInfoStr, RECP_NULL);
-  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.build_number", appVersionInfo.BldNumStr, RECP_NULL);
-  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.build_time", appVersionInfo.BldTimeStr, RECP_NULL);
-  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.build_date", appVersionInfo.BldDateStr, RECP_NULL);
-  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.build_machine", appVersionInfo.BldMachineStr, RECP_NULL);
-  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.build_person", appVersionInfo.BldPersonStr, RECP_NULL);
+  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.short", appVersionInfo.VersionStr, RECP_NON_PERSISTENT);
+  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.long", appVersionInfo.FullVersionInfoStr, RECP_NON_PERSISTENT);
+  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.build_number", appVersionInfo.BldNumStr, RECP_NON_PERSISTENT);
+  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.build_time", appVersionInfo.BldTimeStr, RECP_NON_PERSISTENT);
+  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.build_date", appVersionInfo.BldDateStr, RECP_NON_PERSISTENT);
+  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.build_machine", appVersionInfo.BldMachineStr, RECP_NON_PERSISTENT);
+  RecRegisterStatString(RECT_PROCESS, "proxy.process.version.server.build_person", appVersionInfo.BldPersonStr, RECP_NON_PERSISTENT);
 }
 
 //
@@ -360,7 +362,7 @@ cmd_list(char * /* cmd ATS_UNUSED */)
   // show hostdb size
 
   int h_size = 120000;
-  TS_ReadConfigInteger(h_size, "proxy.config.hostdb.size");
+  REC_ReadConfigInteger(h_size, "proxy.config.hostdb.size");
   printf("Host Database size:\t%d\n", h_size);
 
   // show cache config information....
@@ -402,6 +404,10 @@ CB_After_Cache_Init()
     Debug("http_listen", "Delayed listen enable, cache initialization finished");
     start_HttpProxyServer();
   }
+
+  time_t cache_ready_at = time(NULL);
+  RecSetRecordInt("proxy.node.restarts.proxy.cache_ready_time", cache_ready_at);
+
   // Alert the plugins the cache is initialized.
   hook = lifecycle_hooks->get(TS_LIFECYCLE_CACHE_READY_HOOK);
   while (hook) {
@@ -691,7 +697,7 @@ static void
 check_fd_limit()
 {
   int fds_throttle = -1;
-  TS_ReadConfigInteger(fds_throttle, "proxy.config.net.connections_throttle");
+  REC_ReadConfigInteger(fds_throttle, "proxy.config.net.connections_throttle");
   if (fds_throttle > fds_limit + THROTTLE_FD_HEADROOM) {
     int new_fds_throttle = fds_limit - THROTTLE_FD_HEADROOM;
     if (new_fds_throttle < 1)
@@ -781,7 +787,7 @@ init_core_size()
     RecData rec_temp;
     rec_temp.rec_int = coreSize;
     set_core_size(NULL, RECD_INT, rec_temp, NULL);
-    found = (TS_RegisterConfigUpdateFunc("proxy.config.core_limit", set_core_size, NULL) == REC_ERR_OKAY);
+    found = (REC_RegisterConfigUpdateFunc("proxy.config.core_limit", set_core_size, NULL) == REC_ERR_OKAY);
 
     ink_assert(found);
   }
@@ -796,11 +802,11 @@ adjust_sys_settings(void)
   int fds_throttle = -1;
 
   // TODO: I think we might be able to get rid of this?
-  TS_ReadConfigInteger(mmap_max, "proxy.config.system.mmap_max");
+  REC_ReadConfigInteger(mmap_max, "proxy.config.system.mmap_max");
   if (mmap_max >= 0)
     ats_mallopt(ATS_MMAP_MAX, mmap_max);
 
-  TS_ReadConfigInteger(fds_throttle, "proxy.config.net.connections_throttle");
+  REC_ReadConfigInteger(fds_throttle, "proxy.config.net.connections_throttle");
 
   if (!getrlimit(RLIMIT_NOFILE, &lim)) {
     if (fds_throttle > (int) (lim.rlim_cur + THROTTLE_FD_HEADROOM)) {
@@ -973,7 +979,7 @@ syslog_log_configure()
   char *facility_str = NULL;
   int facility;
 
-  TS_ReadConfigStringAlloc(facility_str, "proxy.config.syslog_facility");
+  REC_ReadConfigStringAlloc(facility_str, "proxy.config.syslog_facility");
 
   if (facility_str == NULL || (facility = facility_string_to_int(facility_str)) < 0) {
     syslog(LOG_WARNING, "Bad or missing syslog facility.  " "Defaulting to LOG_DAEMON");
@@ -1091,14 +1097,14 @@ getNumSSLThreads(void)
   if (HttpProxyPort::hasSSL()) {
     int config_num_ssl_threads = 0;
 
-    TS_ReadConfigInteger(config_num_ssl_threads, "proxy.config.ssl.number.threads");
+    REC_ReadConfigInteger(config_num_ssl_threads, "proxy.config.ssl.number.threads");
 
     if (config_num_ssl_threads != 0) {
       num_of_ssl_threads = config_num_ssl_threads;
     } else {
       float autoconfig_scale = 1.5;
 
-      TS_ReadConfigFloat(autoconfig_scale, "proxy.config.exec_thread.autoconfig.scale");
+      REC_ReadConfigFloat(autoconfig_scale, "proxy.config.exec_thread.autoconfig.scale");
       num_of_ssl_threads = (int)((float)ink_number_of_processors() * autoconfig_scale);
 
       // Last resort
@@ -1117,13 +1123,13 @@ adjust_num_of_net_threads(int nthreads)
   int nth_auto_config = 1;
   int num_of_threads_tmp = 1;
 
-  TS_ReadConfigInteger(nth_auto_config, "proxy.config.exec_thread.autoconfig");
+  REC_ReadConfigInteger(nth_auto_config, "proxy.config.exec_thread.autoconfig");
 
   Debug("threads", "initial number of net threads is %d", nthreads);
   Debug("threads", "net threads auto-configuration %s", nth_auto_config ? "enabled" : "disabled");
 
   if (!nth_auto_config) {
-    TS_ReadConfigInteger(num_of_threads_tmp, "proxy.config.exec_thread.limit");
+    REC_ReadConfigInteger(num_of_threads_tmp, "proxy.config.exec_thread.limit");
 
     if (num_of_threads_tmp <= 0) {
       num_of_threads_tmp = 1;
@@ -1134,7 +1140,7 @@ adjust_num_of_net_threads(int nthreads)
     nthreads = num_of_threads_tmp;
   } else {                      /* autoconfig is enabled */
     num_of_threads_tmp = nthreads;
-    TS_ReadConfigFloat(autoconfig_scale, "proxy.config.exec_thread.autoconfig.scale");
+    REC_ReadConfigFloat(autoconfig_scale, "proxy.config.exec_thread.autoconfig.scale");
     num_of_threads_tmp = (int) ((float) num_of_threads_tmp * autoconfig_scale);
 
     if (num_of_threads_tmp) {
@@ -1314,15 +1320,15 @@ main(int /* argc ATS_UNUSED */, char **argv)
   syslog_log_configure();
 
   if (!num_accept_threads)
-    TS_ReadConfigInteger(num_accept_threads, "proxy.config.accept_threads");
+    REC_ReadConfigInteger(num_accept_threads, "proxy.config.accept_threads");
 
   if (!num_task_threads)
-    TS_ReadConfigInteger(num_task_threads, "proxy.config.task_threads");
+    REC_ReadConfigInteger(num_task_threads, "proxy.config.task_threads");
 
   xptr<char> user(MAX_LOGIN + 1);
 
   *user = '\0';
-  admin_user_p = ((REC_ERR_OKAY == TS_ReadConfigString(user, "proxy.config.admin.user_id", MAX_LOGIN)) &&
+  admin_user_p = ((REC_ERR_OKAY == REC_ReadConfigString(user, "proxy.config.admin.user_id", MAX_LOGIN)) &&
                   (*user != '\0') && (0 != strcmp(user, "#-1")));
 
 # if TS_USE_POSIX_CAP
@@ -1367,7 +1373,7 @@ main(int /* argc ATS_UNUSED */, char **argv)
   // Check if we should do mlockall()
 #if defined(MCL_FUTURE)
   int mlock_flags = 0;
-  TS_ReadConfigInteger(mlock_flags, "proxy.config.mlock_enabled");
+  REC_ReadConfigInteger(mlock_flags, "proxy.config.mlock_enabled");
 
   if (mlock_flags == 2) {
     if (0 != mlockall(MCL_CURRENT | MCL_FUTURE))
@@ -1406,7 +1412,7 @@ main(int /* argc ATS_UNUSED */, char **argv)
   // pmgmt->start() must occur after initialization of Diags but
   // before calling RecProcessInit()
 
-  TS_ReadConfigInteger(res_track_memory, "proxy.config.res_track_memory");
+  REC_ReadConfigInteger(res_track_memory, "proxy.config.res_track_memory");
 
   init_http_header();
 
@@ -1479,7 +1485,7 @@ main(int /* argc ATS_UNUSED */, char **argv)
   eventProcessor.start(num_of_net_threads, stacksize);
 
   int num_remap_threads = 0;
-  TS_ReadConfigInteger(num_remap_threads, "proxy.config.remap.num_remap_threads");
+  REC_ReadConfigInteger(num_remap_threads, "proxy.config.remap.num_remap_threads");
   if (num_remap_threads < 1)
     num_remap_threads = 0;
 
@@ -1517,12 +1523,11 @@ main(int /* argc ATS_UNUSED */, char **argv)
     HttpProxyPort::loadDefaultIfEmpty();
 
     if (!accept_mss)
-      TS_ReadConfigInteger(accept_mss, "proxy.config.net.sock_mss_in");
+      REC_ReadConfigInteger(accept_mss, "proxy.config.net.sock_mss_in");
 
     NetProcessor::accept_mss = accept_mss;
     netProcessor.start(0, stacksize);
 
-    sslNetProcessor.start(getNumSSLThreads(), stacksize);
 
     dnsProcessor.start(0, stacksize);
     if (hostDBProcessor.start() < 0)
@@ -1534,6 +1539,9 @@ main(int /* argc ATS_UNUSED */, char **argv)
 
     // Init plugins as soon as logging is ready.
     plugin_init();        // plugin.config
+
+    SSLConfigParams::init_ssl_ctx_cb = init_ssl_ctx_callback;
+    sslNetProcessor.start(getNumSSLThreads(), stacksize);
     pmgmt->registerPluginCallbacks(global_config_cbs);
 
     cacheProcessor.set_after_init_callback(&CB_After_Cache_Init);
@@ -1541,7 +1549,7 @@ main(int /* argc ATS_UNUSED */, char **argv)
 
     // UDP net-threads are turned off by default.
     if (!num_of_udp_threads)
-      TS_ReadConfigInteger(num_of_udp_threads, "proxy.config.udp.threads");
+      REC_ReadConfigInteger(num_of_udp_threads, "proxy.config.udp.threads");
     if (num_of_udp_threads)
       udpNet.start(num_of_udp_threads, stacksize);
 
@@ -1581,11 +1589,11 @@ main(int /* argc ATS_UNUSED */, char **argv)
     init_HttpProxyServer(num_accept_threads);
 
     int http_enabled = 1;
-    TS_ReadConfigInteger(http_enabled, "proxy.config.http.enabled");
+    REC_ReadConfigInteger(http_enabled, "proxy.config.http.enabled");
 
     if (http_enabled) {
       int icp_enabled = 0;
-      TS_ReadConfigInteger(icp_enabled, "proxy.config.icp.enabled");
+      REC_ReadConfigInteger(icp_enabled, "proxy.config.icp.enabled");
 
       // call the ready hooks before we start accepting connections.
       APIHook* hook = lifecycle_hooks->get(TS_LIFECYCLE_PORTS_INITIALIZED_HOOK);
@@ -1595,7 +1603,7 @@ main(int /* argc ATS_UNUSED */, char **argv)
       }
 
       int delay_p = 0;
-      TS_ReadConfigInteger(delay_p, "proxy.config.http.wait_for_cache");
+      REC_ReadConfigInteger(delay_p, "proxy.config.http.wait_for_cache");
 
       // Delay only if config value set and flag value is zero
       // (-1 => cache already initialized)
@@ -1612,7 +1620,7 @@ main(int /* argc ATS_UNUSED */, char **argv)
     tasksProcessor.start(num_task_threads, stacksize);
 
     int back_door_port = NO_FD;
-    TS_ReadConfigInteger(back_door_port, "proxy.config.process_manager.mgmt_port");
+    REC_ReadConfigInteger(back_door_port, "proxy.config.process_manager.mgmt_port");
     if (back_door_port != NO_FD)
       start_HttpProxyServerBackDoor(back_door_port, num_accept_threads > 0 ? 1 : 0); // One accept thread is enough
 
@@ -1627,6 +1635,11 @@ main(int /* argc ATS_UNUSED */, char **argv)
 
     pmgmt->registerMgmtCallback(MGMT_EVENT_SHUTDOWN, mgmt_restart_shutdown_callback, NULL);
     pmgmt->registerMgmtCallback(MGMT_EVENT_RESTART, mgmt_restart_shutdown_callback, NULL);
+
+    // Callback for various storage commands. These all go to the same function so we
+    // pass the event code along so it can do the right thing. We cast that to <int> first
+    // just to be safe because the value is a #define, not a typed value.
+    pmgmt->registerMgmtCallback(MGMT_EVENT_STORAGE_DEVICE_CMD_OFFLINE, mgmt_storage_device_cmd_callback, reinterpret_cast<void*>(static_cast<int>(MGMT_EVENT_STORAGE_DEVICE_CMD_OFFLINE)));
 
     // The main thread also becomes a net thread.
     ink_set_thread_name("[ET_NET 0]");
@@ -1673,4 +1686,35 @@ mgmt_restart_shutdown_callback(void *, char *, int /* data_len ATS_UNUSED */)
 {
   sync_cache_dir_on_shutdown();
   return NULL;
+}
+
+static void*
+mgmt_storage_device_cmd_callback(void* data, char* arg, int len)
+{
+  // data is the device name to control
+  CacheDisk* d = cacheProcessor.find_by_path(arg, len);
+  // Actual command is in @a data.
+  intptr_t cmd = reinterpret_cast<intptr_t>(data);
+
+  if (d) {
+    switch (cmd) {
+    case MGMT_EVENT_STORAGE_DEVICE_CMD_OFFLINE:
+      Debug("server", "Marking %.*s offline", len, arg);
+      cacheProcessor.mark_storage_offline(d);
+      break;
+    }
+  }
+  return NULL;
+}
+
+static void
+init_ssl_ctx_callback(void *ctx, bool server)
+{
+  TSEvent event = server ? TS_EVENT_LIFECYCLE_SERVER_SSL_CTX_INITIALIZED : TS_EVENT_LIFECYCLE_CLIENT_SSL_CTX_INITIALIZED;
+  APIHook *hook = lifecycle_hooks->get(server ? TS_LIFECYCLE_SERVER_SSL_CTX_INITIALIZED_HOOK : TS_LIFECYCLE_CLIENT_SSL_CTX_INITIALIZED_HOOK);
+
+  while (hook) {
+    hook->invoke(event, ctx);
+    hook = hook->next();
+  }
 }

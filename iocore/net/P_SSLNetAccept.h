@@ -57,6 +57,7 @@ struct SSLNetAccept: public NetAccept
   virtual UnixNetVConnection *allocateGlobal();
   virtual EventType getEtype();
   virtual void init_accept_per_thread();
+  virtual NetAccept *clone();
 
   SSLNetAccept()
     { };

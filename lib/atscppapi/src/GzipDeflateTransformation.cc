@@ -23,6 +23,7 @@
 #include <cstring>
 #include <vector>
 #include <zlib.h>
+#include <inttypes.h>
 #include "atscppapi/TransformationPlugin.h"
 #include "atscppapi/GzipDeflateTransformation.h"
 #include "logging_internal.h"
@@ -34,7 +35,7 @@ using std::vector;
 namespace {
 const int GZIP_MEM_LEVEL = 8;
 const int WINDOW_BITS = 31; // Always use 31 for gzip.
-const int ONE_KB = 1024;
+const unsigned int ONE_KB = 1024;
 }
 
 /**
@@ -93,7 +94,7 @@ void GzipDeflateTransformation::consume(const string &data) {
 
   // For small payloads the size can actually be greater than the original input
   // so we'll use twice the original size to avoid needless repeated calls to deflate.
-  unsigned long buffer_size = data.length() < static_cast<string::size_type>(ONE_KB ? 2 * ONE_KB : data.length());
+  unsigned long buffer_size = (data.length() < ONE_KB) ? 2 * ONE_KB : data.length();
   vector<unsigned char> buffer(buffer_size);
 
   do {
@@ -148,9 +149,6 @@ void GzipDeflateTransformation::handleInputComplete() {
 
   int64_t bytes_written = setOutputComplete();
   if (state_->bytes_produced_ != bytes_written) {
-    LOG_ERROR("Gzip bytes produced sanity check failed, deflated bytes = %ld != written bytes = %ld", state_->bytes_produced_, bytes_written);
+    LOG_ERROR("Gzip bytes produced sanity check failed, deflated bytes = %" PRId64 " != written bytes = %" PRId64, state_->bytes_produced_, bytes_written);
   }
 }
-
-
-

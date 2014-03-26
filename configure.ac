@@ -32,8 +32,8 @@
 # Version number is calculated as MAJOR * 1000000 + MINOR * 1000 + MICRO
 # Version string is in the form of MAJOR.MINOR.MICRO[sufix]
 #
-m4_define([TS_VERSION_S],[4.2.0])
-m4_define([TS_VERSION_N],[4002000])
+m4_define([TS_VERSION_S],[5.0.0])
+m4_define([TS_VERSION_N],[5000000])
 
 AC_INIT([Apache Traffic Server], TS_VERSION_S(), [dev@trafficserver.apache.org], [trafficserver],[http://trafficserver.apache.org])
 AC_PREREQ([2.59])
@@ -215,19 +215,6 @@ TS_ARG_ENABLE_VAR([has], [tests])
 AC_SUBST(has_tests)
 AM_CONDITIONAL([BUILD_TESTS], [test 0 -ne $has_tests])
 
-#
-# Micro
-#
-AC_MSG_CHECKING([whether to enable micro-TS])
-AC_ARG_ENABLE([micro],
-  [AS_HELP_STRING([--enable-micro],[enable micro-TS build [default=no]])],
-  [],
-  [enable_micro=no]
-)
-AC_MSG_RESULT([$enable_micro])
-AS_IF([test "x$enable_micro" = "xyes"], [is_micro_build=1], [is_micro_build=0])
-AC_SUBST(is_micro_build)
-
 AC_SUBST([ink_with_modules_def],["-DREC_BUILD_MGMT"])
 AC_SUBST([ink_with_modules_local],["-DLOCAL_MANAGER"])
 AC_SUBST([ink_with_modules_process],["-DPROCESS_MANAGER"])
@@ -341,21 +328,6 @@ AC_ARG_ENABLE([ccache],
 AC_MSG_RESULT([$enable_ccache])
 
 #
-# Enble traffic_cop debugging
-#
-AC_MSG_CHECKING([whether to enable traffic_cop debugging])
-AC_ARG_ENABLE([cop-debug],
-  [AS_HELP_STRING([--enable-cop-debug],[Enable Traffic Cop debugging (for developers)])],
-  [],
-  [enable_cop_debug="no"]
-)
-AC_MSG_RESULT([$enable_cop_debug])
-TS_ARG_ENABLE_VAR([use], [cop-debug])
-AC_SUBST(use_cop_debug)
-
-
-
-#
 # Use TPROXY for connection transparency.
 #
 AC_MSG_CHECKING([whether to enable TPROXY based transparency])
@@ -409,6 +381,20 @@ fi
 TS_ARG_ENABLE_VAR([use], [reclaimable_freelist])
 AC_SUBST(use_reclaimable_freelist)
 
+#
+# Options for SPDY
+#
+AC_MSG_CHECKING([whether to enable spdy])
+AC_ARG_ENABLE([spdy],
+	[AS_HELP_STRING([--enable-spdy], [turn on spdy protocol])],
+	[],
+	[enable_spdy="no"])
+AC_MSG_RESULT([$enable_spdy])
+TS_ARG_ENABLE_VAR([has], [spdy])
+AC_SUBST(has_spdy)
+AM_CONDITIONAL([BUILD_SPDY], [test 0 -ne $has_spdy])
+
+#
 # Configure how many stats to allocate for plugins. Default is 512.
 #
 AC_ARG_WITH([max-api-stats],
@@ -459,6 +445,34 @@ AC_ARG_ENABLE([experimental-plugins],
 AC_MSG_RESULT([$enable_experimental_plugins])
 AM_CONDITIONAL([BUILD_EXPERIMENTAL_PLUGINS], [ test "x${enable_experimental_plugins}" = "xyes" ])
 
+#
+# Example plugins. The example plugins are always built, but not always installed. Installing
+# them is useful for QA, but not useful for most users, so we default this to disabled.
+#
+
+AC_MSG_CHECKING([whether to install example plugins])
+AC_ARG_ENABLE([example-plugins],
+  [AS_HELP_STRING([--enable-example-plugins],[install example plugins])],
+  [],
+  [enable_example_plugins=no]
+)
+AC_MSG_RESULT([$enable_example_plugins])
+AM_CONDITIONAL([BUILD_EXAMPLE_PLUGINS], [ test "x${enable_example_plugins}" = "xyes" ])
+
+
+#
+# Test tools. The test tools are always built, but not always installed. Installing
+# them is useful for QA, but not useful for most users, so we default this to disabled.
+#
+
+AC_MSG_CHECKING([whether to install testing tools])
+AC_ARG_ENABLE([test-tools],
+  [AS_HELP_STRING([--enable-test-tools],[install testing tools])],
+  [],
+  [enable_test_tools=no]
+)
+AC_MSG_RESULT([$enable_test_tools])
+AM_CONDITIONAL([BUILD_TEST_TOOLS], [ test "x${enable_test_tools}" = "xyes" ])
 
 #
 # build c++ api
@@ -572,6 +586,24 @@ AC_COMPILE_IFELSE([
 AC_MSG_RESULT([$have_gnu_cxx_hash_map])
 if test "x${have_gnu_cxx_hash_map}" = "xyes" ; then
   AC_DEFINE(HAVE_GNU_CXX_HASH_MAP, 1, [whether __gnu_cxx::hash_map is available])
+fi
+
+# And check for std::shared_ptr vs std::tr1::shared_ptr
+TS_FLAG_HEADERS([unordered_map unordered_set])
+AC_MSG_CHECKING([for std::shared_ptr])
+AC_COMPILE_IFELSE([
+  AC_LANG_PROGRAM([
+    #include <memory>
+    using std::shared_ptr;
+    ], [
+  ])],
+  [ have_std_shared_ptr=yes ],
+  [ have_std_shared_ptr=no ]
+)
+
+AC_MSG_RESULT([$have_std_shared_ptr])
+if test "x${have_std_shared_ptr}" = "xyes" ; then
+  AC_DEFINE(HAVE_STD_SHARED_PTR, 1, [whether std::shared_ptr is available])
 fi
 
 AC_LANG_POP()
@@ -1093,14 +1125,14 @@ AX_BOOST_BASE([1.33],
 #
 # Check for SSL presence and usability
 TS_CHECK_CRYPTO
-if test "x${enable_crypto}" != "xyes"; then
-  AC_MSG_ERROR([Need at least one SSL library, --with-openssl is supported])
-fi
 
 #
 # Check for NextProtocolNegotiation TLS extension support.
 TS_CHECK_CRYPTO_NEXTPROTONEG
 
+#
+# Check for ALPN TLS extension support.
+TS_CHECK_CRYPTO_ALPN
 #
 # Check for EC key support.
 TS_CHECK_CRYPTO_EC_KEYS
@@ -1108,10 +1140,6 @@ TS_CHECK_CRYPTO_EC_KEYS
 #
 # Check for ServerNameIndication TLS extension support.
 TS_CHECK_CRYPTO_SNI
-
-#
-# Check for RFC5077 TLS session ticket support.
-TS_CHECK_CRYPTO_TICKETS
 
 #
 # Check for zlib presence and usability
@@ -1329,20 +1357,36 @@ AC_SUBST(use_linux_native_aio)
 # If we don't find it, disable checking for header.
 use_hwloc=0
 AS_IF([test "x$enable_hwloc" = "xyes"], [
-  AC_CHECK_HEADERS([hwloc.h], [],
-    [AC_MSG_WARN([hwloc.h header not found, try --disable-hwloc])], []
-  )
-
-  # Old versions of libhwloc don't have HWLOC_OBJ_PU.
-  AC_CHECK_DECL(HWLOC_OBJ_PU,
-    [AC_DEFINE(HAVE_HWLOC_OBJ_PU, 1, [Whether HWLOC_OBJ_PU is available])], [],
-    [#include <hwloc.h>]
-  )
-
   # Use pkg-config, because some distros (*cough* Ubuntu) put hwloc in unusual places.
-  PKG_CHECK_MODULES([hwloc], [hwloc], [use_hwloc=yes], [use_hwloc=no])
-  AC_SUBST([hwloc_CFLAGS])
-  AC_SUBST([hwloc_LIBS])
+  PKG_CHECK_MODULES([hwloc], [hwloc], [
+    SAVE_LIBS="$LIBS"
+    LIBS="-lhwloc"
+    AC_LANG_PUSH([C++])
+    AC_MSG_CHECKING([for hwloc C++ linking])
+    AC_LINK_IFELSE([
+      AC_LANG_PROGRAM([#include <hwloc.h>],[hwloc_topology_t t; hwloc_topology_init(&t); hwloc_get_type_depth(t, HWLOC_OBJ_SOCKET);])],[
+      use_hwloc=1
+      AC_SUBST([hwloc_CFLAGS])
+      AC_SUBST([hwloc_LIBS])
+      AC_MSG_RESULT([yes])
+      # Old versions of libhwloc don't have HWLOC_OBJ_PU.
+      AC_CHECK_DECL(HWLOC_OBJ_PU,
+        [AC_DEFINE(HAVE_HWLOC_OBJ_PU, 1, [Whether HWLOC_OBJ_PU is available])], [],
+        [#include <hwloc.h>]
+      )
+    ], [
+      AC_MSG_RESULT([no])
+      AC_MSG_WARN([hwloc not linkable, try --disable-hwloc])
+      AC_SUBST([hwloc_CFLAGS],[""])
+      AC_SUBST([hwloc_LIBS],[""])
+    ])
+    AC_LANG_POP()
+    LIBS="$SAVE_LIBS"
+  ], [
+    AC_MSG_WARN([hwloc not found, try --disable-hwloc])
+    AC_SUBST([hwloc_CFLAGS],[""])
+    AC_SUBST([hwloc_LIBS],[""])
+  ])
 ])
 
 AC_SUBST(use_hwloc)
@@ -1443,6 +1487,11 @@ AC_SUBST(LUA_LUAJIT_LDFLAGS)
 
 # We should be able to build http_load if epoll(2) is available.
 AM_CONDITIONAL([BUILD_HTTP_LOAD], [test x"$ac_cv_func_epoll_ctl" = x"yes"])
+
+# Check for spdylay library
+if test "x${enable_spdy}" = "xyes"; then
+  PKG_CHECK_MODULES([SPDYLAY],[libspdylay])
+fi
 
 # -----------------------------------------------------------------------------
 # 5. CHECK FOR HEADER FILES
@@ -1887,34 +1936,36 @@ AC_CONFIG_FILES([
   iocore/net/Makefile
   iocore/utils/Makefile
   lib/Makefile
-  lib/records/Makefile
-  lib/ts/Makefile
-  lib/ts/ink_config.h
-  lib/tsconfig/Makefile
   lib/atscppapi/Makefile
-  lib/atscppapi/src/Makefile
   lib/atscppapi/examples/Makefile
-  lib/atscppapi/examples/helloworld/Makefile
-  lib/atscppapi/examples/globalhook/Makefile
-  lib/atscppapi/examples/transactionhook/Makefile
-  lib/atscppapi/examples/multiple_transaction_hooks/Makefile
-  lib/atscppapi/examples/clientrequest/Makefile
-  lib/atscppapi/examples/data_caching/Makefile
-  lib/atscppapi/examples/serverresponse/Makefile
+  lib/atscppapi/examples/async_http_fetch/Makefile
+  lib/atscppapi/examples/async_timer/Makefile
   lib/atscppapi/examples/clientredirect/Makefile
+  lib/atscppapi/examples/clientrequest/Makefile
   lib/atscppapi/examples/customresponse/Makefile
+  lib/atscppapi/examples/globalhook/Makefile
+  lib/atscppapi/examples/gzip_transformation/Makefile
+  lib/atscppapi/examples/helloworld/Makefile
+  lib/atscppapi/examples/intercept/Makefile
+  lib/atscppapi/examples/internal_transaction_handling/Makefile
+  lib/atscppapi/examples/logger_example/Makefile
+  lib/atscppapi/examples/multiple_transaction_hooks/Makefile
   lib/atscppapi/examples/null_transformation_plugin/Makefile
   lib/atscppapi/examples/post_buffer/Makefile
-  lib/atscppapi/examples/logger_example/Makefile
-  lib/atscppapi/examples/stat_example/Makefile
-  lib/atscppapi/examples/async_http_fetch/Makefile
   lib/atscppapi/examples/remap_plugin/Makefile
-  lib/atscppapi/examples/gzip_transformation/Makefile
+  lib/atscppapi/examples/serverresponse/Makefile
+  lib/atscppapi/examples/stat_example/Makefile
   lib/atscppapi/examples/timeout_example/Makefile
-  lib/atscppapi/examples/internal_transaction_handling/Makefile
-  lib/atscppapi/examples/async_timer/Makefile
-  lib/wccp/Makefile
+  lib/atscppapi/examples/transactionhook/Makefile
+  lib/atscppapi/src/Makefile
   lib/perl/Makefile
+  lib/perl/lib/Apache/TS.pm
+  lib/records/Makefile
+  lib/ts/Makefile
+  lib/ts/apidefs.h
+  lib/ts/ink_config.h
+  lib/tsconfig/Makefile
+  lib/wccp/Makefile
   mgmt/Makefile
   mgmt/api/Makefile
   mgmt/api/include/Makefile
@@ -1926,33 +1977,33 @@ AC_CONFIG_FILES([
   plugins/Makefile
   plugins/cacheurl/Makefile
   plugins/conf_remap/Makefile
+  plugins/gzip/Makefile
+  plugins/header_rewrite/Makefile
+  plugins/libloader/Makefile
+  plugins/regex_remap/Makefile
+  plugins/stats_over_http/Makefile
   plugins/experimental/Makefile
   plugins/experimental/authproxy/Makefile
   plugins/experimental/balancer/Makefile
   plugins/experimental/buffer_upload/Makefile
   plugins/experimental/channel_stats/Makefile
   plugins/experimental/custom_redirect/Makefile
+  plugins/experimental/escalate/Makefile
   plugins/experimental/esi/Makefile
   plugins/experimental/geoip_acl/Makefile
-  plugins/experimental/lua/Makefile
+  plugins/experimental/healthchecks/Makefile
   plugins/experimental/hipes/Makefile
-  plugins/experimental/ts_lua/Makefile
+  plugins/experimental/lua/Makefile
   plugins/experimental/metalink/Makefile
+  plugins/experimental/remap_stats/Makefile
   plugins/experimental/rfc5861/Makefile
+  plugins/experimental/s3_auth/Makefile
   plugins/experimental/spdy/Makefile
   plugins/experimental/tcp_info/Makefile
-  plugins/experimental/healthchecks/Makefile
-  plugins/experimental/remap_stats/Makefile
+  plugins/experimental/ts_lua/Makefile
   plugins/experimental/xdebug/Makefile
-  plugins/gzip/Makefile
-  plugins/libloader/Makefile
-  plugins/header_filter/Makefile
-  plugins/header_rewrite/Makefile
-  plugins/regex_remap/Makefile
-  plugins/stats_over_http/Makefile
   proxy/Makefile
   proxy/api/ts/Makefile
-  proxy/api/ts/ts.h
   proxy/config/Makefile
   proxy/config/body_factory/Makefile
   proxy/config/body_factory/default/Makefile
@@ -1960,10 +2011,11 @@ AC_CONFIG_FILES([
   proxy/config/storage.config.default
   proxy/congest/Makefile
   proxy/hdrs/Makefile
-  proxy/shared/Makefile
   proxy/http/Makefile
   proxy/http/remap/Makefile
   proxy/logging/Makefile
+  proxy/shared/Makefile
+  proxy/spdy/Makefile
   rc/Makefile
   rc/trafficserver
   rc/trafficserver.conf

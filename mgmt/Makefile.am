@@ -51,8 +51,7 @@ libmgmt_p_a_CPPFLAGS = \
   -I$(top_srcdir)/mgmt/preparse \
   -I$(top_srcdir)/mgmt/utils \
   -I$(top_srcdir)/mgmt/web2 \
-  -I$(top_builddir)/proxy \
-  -I$(top_builddir)/proxy/api/ts \
+  -I$(top_srcdir)/proxy/api/ts \
   -I$(top_srcdir)/proxy \
   -I$(top_srcdir)/proxy/hdrs \
   -I$(top_srcdir)/lib/records \
@@ -104,7 +103,7 @@ traffic_manager_LDADD = \
   $(top_builddir)/iocore/eventsystem/libinkevent.a \
   $(top_builddir)/proxy/shared/liberror.a \
   $(top_builddir)/proxy/shared/libdiagsconfig.a \
-  @LIBRESOLV@ @LIBEXPAT@ @LIBPCRE@ @LIBTCL@ @LIBCAP@ \
+  @LIBRESOLV@ @LIBEXPAT@ @LIBPCRE@ @LIBTCL@ @LIBCAP@ @hwloc_LIBS@ \
   -lm
 
 # Must do it this way or the dependencies aren't detected.
@@ -114,5 +113,5 @@ traffic_manager_LDADD += \
   $(top_builddir)/lib/tsconfig/libtsconfig.la
 endif
 
-traffic_manager_LDADD += @LIBSSL@
+traffic_manager_LDADD += @OPENSSL_LIBS@
 

@@ -224,7 +224,7 @@ CONFIG proxy.config.http.push_method_enabled INT 0
 CONFIG proxy.config.http.cache.http INT 1
    # Enabling this setting allows the proxy to cache empty documents. This currently
    # requires that the response has a Content-Length: header, with a value of "0".
-CONFIG proxy.config.http.cache.allow_empty_doc INT 0
+CONFIG proxy.config.http.cache.allow_empty_doc INT 1
 CONFIG proxy.config.http.cache.ignore_client_no_cache INT 1
 CONFIG proxy.config.http.cache.ims_on_client_no_cache INT 1
 CONFIG proxy.config.http.cache.ignore_server_no_cache INT 0
@@ -523,15 +523,9 @@ CONFIG proxy.config.ssl.server.cert.path STRING @rel_sysconfdir@
    # fill in the private key path. Private key names specified in
    # ssl_multicert.config will be located relative to this path.
 CONFIG proxy.config.ssl.server.private_key.path STRING @rel_sysconfdir@
-   # The CA file name and path are the
-   # certificate authority certificate that
-   # client certificates will be verified against.
-CONFIG proxy.config.ssl.CA.cert.filename STRING NULL
-CONFIG proxy.config.ssl.CA.cert.path STRING @rel_sysconfdir@
    ################################
    # client related configuration #
    ################################
-CONFIG proxy.config.ssl.client.verify.server INT 0
 CONFIG proxy.config.ssl.client.cert.filename STRING NULL
 CONFIG proxy.config.ssl.client.cert.path STRING @rel_sysconfdir@
    # Fill in private key file and path only if the client's
@@ -541,6 +535,7 @@ CONFIG proxy.config.ssl.client.private_key.path STRING @rel_sysconfdir@
    # The CA file name and path are the
    # certificate authority certificate that
    # server certificates will be verified against.
+CONFIG proxy.config.ssl.client.verify.server INT 0
 CONFIG proxy.config.ssl.client.CA.cert.filename STRING NULL
 CONFIG proxy.config.ssl.client.CA.cert.path STRING @rel_sysconfdir@
 ##############################################################################

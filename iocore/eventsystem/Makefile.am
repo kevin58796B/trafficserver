@@ -73,8 +73,7 @@ check_PROGRAMS = test_Buffer test_Event
 
 test_CXXFLAGS = \
   $(iocore_include_dirs) \
-  -I$(top_builddir)/proxy \
-  -I$(top_builddir)/proxy/api/ts \
+  -I$(top_srcdir)/proxy/api/ts \
   -I$(top_srcdir)/proxy/api \
   -I$(top_srcdir)/proxy \
   -I$(top_srcdir)/proxy/hdrs \
@@ -91,7 +90,7 @@ test_LDADD = \
   $(top_builddir)/iocore/eventsystem/libinkevent.a \
   $(top_builddir)/lib/ts/libtsutil.la \
   $(top_builddir)/proxy/shared/libUglyLogStubs.a \
-  @LIBTCL@
+  @LIBTCL@ @hwloc_LIBS@
 
 test_Buffer_SOURCES = \
   test_Buffer.cc

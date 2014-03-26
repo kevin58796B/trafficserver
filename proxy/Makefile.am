@@ -17,7 +17,7 @@
 #  limitations under the License.
 
 # Note that hdrs is targeted from ../Makefile.am
-SUBDIRS = congest http logging config
+SUBDIRS = congest http spdy logging config
 noinst_LIBRARIES =
 bin_PROGRAMS = \
   traffic_server \
@@ -45,19 +45,16 @@ AM_CPPFLAGS = \
   -I$(top_srcdir)/mgmt \
   -I$(top_srcdir)/mgmt/preparse \
   -I$(top_srcdir)/mgmt/utils \
-  -I$(top_builddir)/proxy/api/ts \
-  -I$(top_srcdir)/lib \
   $(LUA_CFLAGS)
 
 noinst_HEADERS = \
   ConfigParse.h \
   Show.h
 
-
 if STATIC_LIBTS
-   which_libts = $(top_builddir)/lib/ts/.libs/libtsutil.a
+    which_libts = $(top_builddir)/lib/ts/.libs/libtsutil.a
 else
-   which_libts = $(top_builddir)/lib/ts/libtsutil.la
+    which_libts = $(top_builddir)/lib/ts/libtsutil.la
 endif
 
 EXTRA_DIST = InkAPITestTool.cc example_alarm_bin.sh example_prep.sh
@@ -124,6 +121,7 @@ endif
 traffic_server_LDFLAGS = @LUA_LUAJIT_LDFLAGS@ @EXTRA_CXX_LDFLAGS@ @LIBTOOL_LINK_FLAGS@
 traffic_server_LDADD = \
   http/libhttp.a \
+  spdy/libspdy.a \
   http/remap/libhttp_remap.a \
   congest/libCongestionControl.a \
   logging/liblogging.a \
@@ -152,7 +150,7 @@ traffic_server_LDADD = \
   @hwloc_LIBS@ \
   @LUA_LIBS@ \
   @LIBPCRE@ \
-  @LIBSSL@ \
+  @OPENSSL_LIBS@ \
   @LIBTCL@ \
   @LIBEXPAT@ \
   @LIBDEMANGLE@ \
@@ -161,6 +159,7 @@ traffic_server_LDADD = \
   @LIBZ@ \
   @LIBLZMA@ \
   @LIBPROFILER@ \
+  @SPDYLAY_LIBS@ \
   -lm
 
 if BUILD_LUA_SUPPORT
@@ -180,7 +179,7 @@ traffic_logcat_LDADD = \
   $(top_builddir)/lib/records/librecprocess.a \
   $(top_builddir)/iocore/eventsystem/libinkevent.a \
   $(top_builddir)/lib/ts/libtsutil.la \
-  @LIBRESOLV@ @LIBPCRE@ @LIBSSL@ @LIBTCL@ \
+  @LIBRESOLV@ @LIBPCRE@ @OPENSSL_LIBS@ @LIBTCL@ @hwloc_LIBS@ \
   @LIBEXPAT@ @LIBDEMANGLE@ @LIBPROFILER@ -lm
 
 traffic_logstats_SOURCES = logstats.cc
@@ -196,7 +195,7 @@ traffic_logstats_LDADD = \
   $(top_builddir)/lib/records/librecprocess.a \
   $(top_builddir)/iocore/eventsystem/libinkevent.a \
   $(top_builddir)/lib/ts/libtsutil.la \
-  @LIBRESOLV@ @LIBPCRE@ @LIBSSL@ @LIBTCL@ \
+  @LIBRESOLV@ @LIBPCRE@ @OPENSSL_LIBS@ @LIBTCL@ @hwloc_LIBS@ \
   @LIBEXPAT@ @LIBDEMANGLE@ @LIBPROFILER@ -lm
 
 traffic_sac_SOURCES = \
@@ -228,6 +227,7 @@ traffic_sac_SOURCES = \
 traffic_sac_LDFLAGS = @LUA_LUAJIT_LDFLAGS@ @EXTRA_CXX_LDFLAGS@ @LIBTOOL_LINK_FLAGS@
 traffic_sac_LDADD = \
   http/libhttp.a \
+  spdy/libspdy.a \
   shared/libdiagsconfig.a \
   http/remap/libhttp_remap.a \
   congest/libCongestionControl.a \
@@ -251,9 +251,14 @@ traffic_sac_LDADD = \
   $(top_builddir)/iocore/eventsystem/libinkevent.a \
   $(top_builddir)/lib/records/librecprocess.a \
   $(top_builddir)/lib/ts/libtsutil.la \
+<<<<<<< HEAD
   @LUA_LIBS@ \
   @LIBRESOLV@ @LIBPCRE@ @LIBSSL@ @LIBTCL@ \
   @LIBEXPAT@ @LIBDEMANGLE@ @LIBZ@ @LIBLZMA@ @LIBPROFILER@ -lm
+=======
+  @LIBRESOLV@ @LIBPCRE@ @OPENSSL_LIBS@ @LIBTCL@ @hwloc_LIBS@ \
+  @LIBEXPAT@ @LIBDEMANGLE@ @LIBZ@ @LIBLZMA@ @LIBPROFILER@ @SPDYLAY_LIBS@ -lm
+>>>>>>> origin/master
 
 if BUILD_TESTS
   traffic_sac_SOURCES += RegressionSM.cc

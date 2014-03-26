@@ -68,9 +68,12 @@ HttpTransactHeaders::is_this_method_supported(int the_scheme, int the_method)
 {
   if (the_method == HTTP_WKSIDX_CONNECT) {
     return true;
-  } else if (the_scheme == URL_WKSIDX_HTTP || the_scheme == URL_WKSIDX_HTTPS)
+  } else if (the_scheme == URL_WKSIDX_HTTP || the_scheme == URL_WKSIDX_HTTPS) {
     return is_this_http_method_supported(the_method);
-  else
+  } else if ((the_scheme == URL_WKSIDX_WS || the_scheme == URL_WKSIDX_WSS) &&
+            the_method == HTTP_WKSIDX_GET) {
+    return true;
+  } else
     return false;
 }
 
@@ -879,6 +882,25 @@ HttpTransactHeaders::insert_via_header_in_request(HttpTransact::State *s, HTTPHd
   header->value_append(MIME_FIELD_VIA, MIME_LEN_VIA, new_via_string, via_string - new_via_string, true);
 }
 
+void
+HttpTransactHeaders::insert_hsts_header_in_response(HttpTransact::State *s, HTTPHdr *header)
+{
+  char new_hsts_string[64];
+  char *hsts_string = new_hsts_string;
+  const char include_subdomains[] = "; includeSubDomains";
+
+  // add max-age
+  int length = snprintf(new_hsts_string, sizeof(new_hsts_string), "max-age=%" PRId64, s->txn_conf->proxy_response_hsts_max_age);
+
+  // add include subdomain if set
+  if (s->txn_conf->proxy_response_hsts_include_subdomains) {
+    hsts_string += length;
+    memcpy(hsts_string, include_subdomains, sizeof(include_subdomains));
+    length += sizeof(include_subdomains);
+  }
+
+  header->value_set(MIME_FIELD_STRICT_TRANSPORT_SECURITY, MIME_LEN_STRICT_TRANSPORT_SECURITY, new_hsts_string, length);
+}
 
 void
 HttpTransactHeaders::insert_via_header_in_response(HttpTransact::State *s, HTTPHdr *header)

@@ -55,6 +55,7 @@ TSError Reconfigure();         // TS reread config files
 TSError Restart(bool cluster); //restart TM
 TSError HardRestart();         //restart traffic_cop
 TSError Bounce(bool cluster);  //restart traffic_server
+TSError StorageDeviceCmdOffline(char const* dev); // Storage device operation.
 
 /***************************************************************************
  * Record Operations
@@ -68,6 +69,7 @@ TSError MgmtRecordSetInt(const char *rec_name, MgmtInt int_val, TSActionNeedT * 
 TSError MgmtRecordSetCounter(const char *rec_name, MgmtIntCounter counter_val, TSActionNeedT *action_need);
 TSError MgmtRecordSetFloat(const char *rec_name, MgmtFloat float_val, TSActionNeedT * action_need);
 TSError MgmtRecordSetString(const char *rec_name, const char*string_val, TSActionNeedT * action_need);
+TSError MgmtRecordGetMatching(const char * regex, TSList rec_vals);
 
 
 /***************************************************************************

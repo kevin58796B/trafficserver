@@ -6096,8 +6096,7 @@ cache_hook_handler(TSCont contp, TSEvent event, void *edata)
     TSSkipRemappingSet(txnp,1);
     TSHttpTxnReenable(txnp, TS_EVENT_HTTP_CONTINUE);
     break;
-  
-  
+
   case TS_EVENT_HTTP_CACHE_LOOKUP_COMPLETE:
     {
       int lookup_status;
@@ -6259,7 +6258,7 @@ EXCLUSIVE_REGRESSION_TEST(SDK_API_HttpTxnCache) (RegressionTest * test, int /* a
   socktest->first_time = true;
   socktest->magic = MAGIC_ALIVE;
   TSContDataSet(cont, socktest);
-  
+
   TSHttpHookAdd(TS_HTTP_READ_REQUEST_HDR_HOOK, cont);
   /* Register to HTTP hooks that are called in case of a cache MISS */
   TSHttpHookAdd(TS_HTTP_READ_CACHE_HDR_HOOK, cont);
@@ -6752,7 +6751,7 @@ transform_hook_handler(TSCont contp, TSEvent event, void *edata)
       } else {
         SDK_RPRINT(data->test, "TSHttpTxnTransformedResponseCache", "TestCase1", TC_FAIL, "Value's Mismatch");
       }
-      
+
       /* Note: response is available using test->browser->response pointer */
       *(data->pstatus) = REGRESSION_TEST_PASSED;
       if (data->browser1->status != REQUEST_SUCCESS) {
@@ -6835,9 +6834,9 @@ EXCLUSIVE_REGRESSION_TEST(SDK_API_HttpTxnTransform) (RegressionTest * test, int 
 
   /* Prepare the buffer to be appended to responses */
   load(TRANSFORM_APPEND_STRING);
-  
+
   TSHttpHookAdd(TS_HTTP_READ_REQUEST_HDR_HOOK, cont); //so we can skip remapping
-  
+
   /* Register to HTTP hooks that are called in case of a cache MISS */
   TSHttpHookAdd(TS_HTTP_READ_RESPONSE_HDR_HOOK, cont);
 
@@ -7345,6 +7344,8 @@ const char *SDK_Overridable_Configs[TS_CONFIG_LAST_ENTRY] = {
   "proxy.config.http.keep_alive_enabled_out",
   "proxy.config.http.keep_alive_post_out",
   "proxy.config.http.share_server_sessions",
+  "proxy.config.http.server_session_sharing.pool",
+  "proxy.config.http.server_session_sharing.match",
   "proxy.config.net.sock_recv_buffer_size_out",
   "proxy.config.net.sock_send_buffer_size_out",
   "proxy.config.net.sock_option_flag_out",
@@ -7412,7 +7413,11 @@ const char *SDK_Overridable_Configs[TS_CONFIG_LAST_ENTRY] = {
   "proxy.config.http.response_header_max_size",
   "proxy.config.http.negative_revalidating_enabled",
   "proxy.config.http.negative_revalidating_lifetime",
-  "proxy.config.http.accept_encoding_filter_enabled"
+  "proxy.config.http.accept_encoding_filter_enabled",
+  "proxy.config.ssl.hsts_max_age",
+  "proxy.config.ssl.hsts_include_subdomains",
+  "proxy.config.http.cache.open_read_retry_time",
+  "proxy.config.http.cache.max_open_read_retries"
 };
 
 REGRESSION_TEST(SDK_API_OVERRIDABLE_CONFIGS) (RegressionTest * test, int /* atype ATS_UNUSED */, int *pstatus)
@@ -7429,7 +7434,7 @@ REGRESSION_TEST(SDK_API_OVERRIDABLE_CONFIGS) (RegressionTest * test, int /* atyp
   const char *sval_read;
   const char *test_string = "The Apache Traffic Server";
   int len;
-  
+
 
   s->init();
 
@@ -7453,6 +7458,9 @@ REGRESSION_TEST(SDK_API_OVERRIDABLE_CONFIGS) (RegressionTest * test, int /* atyp
     switch (type) {
     case TS_RECORDDATATYPE_INT:
       ival_rand = generator.random() % 126; // to fit in a signed byte
+      // 4.1 backwards compatibility - remove for 5.0
+      if (TS_CONFIG_HTTP_SHARE_SERVER_SESSIONS == key) ival_rand %= 2;
+      // end BC
       TSHttpTxnConfigIntSet(txnp, key, ival_rand);
       TSHttpTxnConfigIntGet(txnp, key, &ival_read);
       if (ival_rand != ival_read) {
@@ -7600,3 +7608,59 @@ REGRESSION_TEST(SDK_API_ENCODING) (RegressionTest * test, int /* atype ATS_UNUSE
 
   return;
 }
+
+
+
+////////////////////////////////////////////////
+// SDK_API_DEBUG_NAME_LOOKUPS
+//
+// Unit Test for API: TSHttpServerStateNameLookup
+//                    TSHttpHookNameLookup
+//                    TSHttpEventNameLookup
+////////////////////////////////////////////////
+
+REGRESSION_TEST(SDK_API_DEBUG_NAME_LOOKUPS) (RegressionTest * test, int /* atype ATS_UNUSED */, int *pstatus)
+{
+  bool success = true;
+  const char state_name[] = "INACTIVE_TIMEOUT";
+  const char hook_name[] = "TS_HTTP_READ_RESPONSE_HDR_HOOK";
+  const char event_name[] = "VC_EVENT_IMMEDIATE";
+  const char* str;
+
+  *pstatus = REGRESSION_TEST_INPROGRESS;
+
+  str = TSHttpServerStateNameLookup(TS_SRVSTATE_INACTIVE_TIMEOUT);
+  if ((strlen(str) != strlen(state_name) || strcmp(str, state_name))) {
+    SDK_RPRINT(test, "TSHttpServerStateNameLookup", "TestCase1", TC_FAIL, "Failed on %d, expected %s, got %s",
+               TS_SRVSTATE_INACTIVE_TIMEOUT, state_name, str);
+    success = false;
+  } else {
+    SDK_RPRINT(test, "TSHttpServerStateNameLookup", "TestCase1", TC_PASS, "ok");
+  }
+
+
+  str = TSHttpHookNameLookup(TS_HTTP_READ_RESPONSE_HDR_HOOK);
+  if ((strlen(str) != strlen(hook_name) || strcmp(str, hook_name))) {
+    SDK_RPRINT(test, "TSHttpHookNameLookup", "TestCase1", TC_FAIL, "Failed on %d, expected %s, got %s",
+               TS_HTTP_READ_RESPONSE_HDR_HOOK, hook_name, str);
+    success = false;
+  } else {
+    SDK_RPRINT(test, "TSHttpHookNameLookup", "TestCase1", TC_PASS, "ok");
+  }
+
+
+  str = TSHttpEventNameLookup(TS_EVENT_IMMEDIATE);
+  if ((strlen(str) != strlen(event_name) || strcmp(str, event_name))) {
+    SDK_RPRINT(test, "TSHttpEventNameLookup", "TestCase1", TC_FAIL, "Failed on %d, expected %s, got %s",
+               TS_EVENT_IMMEDIATE, hook_name, str);
+    success = false;
+  } else {
+    SDK_RPRINT(test, "TSHttpEventNameLookup", "TestCase1", TC_PASS, "ok");
+  }
+
+
+  *pstatus = success ? REGRESSION_TEST_PASSED : REGRESSION_TEST_FAILED;
+
+  return;
+}
+

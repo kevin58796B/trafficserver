@@ -19,7 +19,6 @@ SUBDIRS = helloworld \
 	  globalhook \
       transactionhook \
 	  multiple_transaction_hooks \
-	  data_caching \
 	  clientrequest \
 	  serverresponse \
 	  clientredirect \
@@ -33,4 +32,5 @@ SUBDIRS = helloworld \
 	  gzip_transformation \
 	  timeout_example \
       internal_transaction_handling \
-      async_timer
+      async_timer \
+      intercept

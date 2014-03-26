@@ -19,6 +19,7 @@ if BUILD_EXPERIMENTAL_PLUGINS
 SUBDIRS = \
  authproxy \
  balancer \
+ escalate \
  buffer_upload \
  channel_stats \
  custom_redirect \
@@ -30,6 +31,7 @@ SUBDIRS = \
  metalink \
  remap_stats \
  rfc5861 \
+ s3_auth \
  spdy \
  tcp_info \
  ts_lua \

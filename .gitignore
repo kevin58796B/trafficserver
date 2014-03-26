@@ -50,6 +50,7 @@ cmd/traffic_top/traffic_top
 
 lib/ts/ink_autoconf.h
 lib/ts/ink_config.h
+lib/ts/apidefs.h
 lib/ts/stamp-h1
 lib/ts/CompileParseRules
 lib/ts/ParseRulesCType
@@ -62,6 +63,9 @@ lib/ts/test_atomic
 lib/ts/test_freelist
 lib/ts/test_Map
 lib/ts/test_Vec
+lib/perl/lib/Apache/TS.pm
+
+
 iocore/net/test_certlookup
 iocore/aio/test_AIO
 iocore/eventsystem/test_Buffer
@@ -101,13 +105,13 @@ rc/trafficserver.conf
 rc/trafficserver.service
 
 proxy/api/include/ts
-proxy/api/ts/ts.h
 example/app-template/tsapp
 example/app-template/records.config
 
 */.libs
 */*/.libs
 */*/*/.libs
+*/*/*/*/.libs
 
 .svn
 */.svn/

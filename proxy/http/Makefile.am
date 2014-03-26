@@ -20,8 +20,7 @@ SUBDIRS = remap
 
 AM_CPPFLAGS = \
   $(iocore_include_dirs) \
-  -I$(top_builddir)/proxy \
-  -I$(top_builddir)/proxy/api/ts \
+  -I$(top_srcdir)/proxy/api/ts \
   -I$(top_srcdir)/proxy \
   -I$(top_srcdir)/lib \
   -I$(top_srcdir)/lib/records \
@@ -32,14 +31,15 @@ AM_CPPFLAGS = \
   -I$(top_srcdir)/proxy/hdrs \
   -I$(top_srcdir)/proxy/shared \
   -I$(top_srcdir)/proxy/http/remap \
-  -I$(top_srcdir)/proxy/logging
+  -I$(top_srcdir)/proxy/logging \
+  -I$(top_srcdir)/proxy/spdy
 
 noinst_HEADERS = HttpProxyServerMain.h
 noinst_LIBRARIES = libhttp.a
 
 libhttp_a_SOURCES = \
-  HttpAccept.cc \
-  HttpAccept.h \
+  HttpAcceptCont.cc \
+  HttpAcceptCont.h \
   HttpBodyFactory.cc \
   HttpBodyFactory.h \
   HttpCacheSM.cc \
@@ -74,7 +74,8 @@ libhttp_a_SOURCES = \
   HttpUpdateSM.h
 
 if BUILD_TESTS
-  libhttp_a_SOURCES += HttpUpdateTester.cc
+  libhttp_a_SOURCES += HttpUpdateTester.cc \
+    RegressionHttpTransact.cc
 endif
 
 #test_UNUSED_SOURCES = \

@@ -52,8 +52,15 @@ public:
     registerHook(HOOK_SEND_REQUEST_HEADERS);
   }
 
-  void handleSendRequestHeaders(Transaction &transaction) {
+  void handleSendRequestHeaders(Transaction & /*transaction ATS_UNUSED */) {
     Async::execute<AsyncHttpFetch>(this, new AsyncHttpFetch("http://127.0.0.1/"), getMutex());
+    ++num_fetches_pending_;
+    AsyncHttpFetch *post_request = new AsyncHttpFetch("http://127.0.0.1/post", "data");
+
+    (void)post_request;
+    
+    Async::execute<AsyncHttpFetch>(this, new AsyncHttpFetch("http://127.0.0.1/post", "data"),
+                                   getMutex());
     ++num_fetches_pending_;
 
     // we'll add some custom headers for this request
@@ -83,7 +90,7 @@ public:
     Async::execute<AsyncHttpFetch3>(this, new AsyncHttpFetch3("http://127.0.0.1/", HTTP_METHOD_POST), getMutex());
   }
 
-  void handleAsyncComplete(AsyncHttpFetch3 &async_http_fetch) {
+  void handleAsyncComplete(AsyncHttpFetch3 & /* async_http_fetch ATS_UNUSED */) {
     assert(!"AsyncHttpFetch3 shouldn't have completed!");
   }
 
@@ -93,6 +100,7 @@ private:
 
   void handleAnyAsyncComplete(AsyncHttpFetch &async_http_fetch) {
     // This will be called when our async event is complete.
+    TS_DEBUG(TAG, "Fetch completed for URL [%s]", async_http_fetch.getRequestUrl().getUrlString().c_str());
     const Response &response = async_http_fetch.getResponse();
     if (async_http_fetch.getResult() == AsyncHttpFetch::RESULT_SUCCESS) {
       TS_DEBUG(TAG, "Response version is [%s], status code %d, reason phrase [%s]",
@@ -104,7 +112,7 @@ private:
       const void *body;
       size_t body_size;
       async_http_fetch.getResponseBody(body, body_size);
-      TS_DEBUG(TAG, "Response body is [%.*s]", body_size, body);
+      TS_DEBUG(TAG, "Response body is [%.*s]", static_cast<int>(body_size), static_cast<const char*>(body));
     } else {
       TS_ERROR(TAG, "Fetch did not complete successfully; Result %d",
                static_cast<int>(async_http_fetch.getResult()));
@@ -138,5 +146,7 @@ public:
 void TSPluginInit(int argc ATSCPPAPI_UNUSED, const char *argv[] ATSCPPAPI_UNUSED) {
   TS_DEBUG(TAG, "Loaded async_http_fetch_example plugin");
   GlobalPlugin *instance = new GlobalHookPlugin();
+
+  (void)instance;
 }
 

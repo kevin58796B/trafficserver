@@ -352,6 +352,7 @@ extern const char *MIME_FIELD_RETRY_AFTER;
 extern const char *MIME_FIELD_SENDER;
 extern const char *MIME_FIELD_SERVER;
 extern const char *MIME_FIELD_SET_COOKIE;
+extern const char *MIME_FIELD_STRICT_TRANSPORT_SECURITY;
 extern const char *MIME_FIELD_SUBJECT;
 extern const char *MIME_FIELD_SUMMARY;
 extern const char *MIME_FIELD_TE;
@@ -366,6 +367,8 @@ extern const char *MIME_FIELD_XREF;
 extern const char *MIME_FIELD_INT_DATA_INFO;
 extern const char *MIME_FIELD_X_ID;
 extern const char *MIME_FIELD_X_FORWARDED_FOR;
+extern const char *MIME_FIELD_SEC_WEBSOCKET_KEY;
+extern const char *MIME_FIELD_SEC_WEBSOCKET_VERSION;
 
 extern const char *MIME_VALUE_BYTES;
 extern const char *MIME_VALUE_CHUNKED;
@@ -389,6 +392,7 @@ extern const char *MIME_VALUE_PROXY_REVALIDATE;
 extern const char *MIME_VALUE_PUBLIC;
 extern const char *MIME_VALUE_S_MAXAGE;
 extern const char *MIME_VALUE_NEED_REVALIDATE_ONCE;
+extern const char *MIME_VALUE_WEBSOCKET;
 
 extern int MIME_LEN_ACCEPT;
 extern int MIME_LEN_ACCEPT_CHARSET;
@@ -449,6 +453,7 @@ extern int MIME_LEN_RETRY_AFTER;
 extern int MIME_LEN_SENDER;
 extern int MIME_LEN_SERVER;
 extern int MIME_LEN_SET_COOKIE;
+extern int MIME_LEN_STRICT_TRANSPORT_SECURITY;
 extern int MIME_LEN_SUBJECT;
 extern int MIME_LEN_SUMMARY;
 extern int MIME_LEN_TE;
@@ -486,6 +491,9 @@ extern int MIME_LEN_PROXY_REVALIDATE;
 extern int MIME_LEN_PUBLIC;
 extern int MIME_LEN_S_MAXAGE;
 extern int MIME_LEN_NEED_REVALIDATE_ONCE;
+
+extern int MIME_LEN_SEC_WEBSOCKET_KEY;
+extern int MIME_LEN_SEC_WEBSOCKET_VERSION;
 
 extern int MIME_WKSIDX_ACCEPT;
 extern int MIME_WKSIDX_ACCEPT_CHARSET;
@@ -546,6 +554,7 @@ extern int MIME_WKSIDX_RETRY_AFTER;
 extern int MIME_WKSIDX_SENDER;
 extern int MIME_WKSIDX_SERVER;
 extern int MIME_WKSIDX_SET_COOKIE;
+extern int MIME_WKSIDX_STRICT_TRANSPORT_SECURITY;
 extern int MIME_WKSIDX_SUBJECT;
 extern int MIME_WKSIDX_SUMMARY;
 extern int MIME_WKSIDX_TE;
@@ -559,6 +568,8 @@ extern int MIME_WKSIDX_WWW_AUTHENTICATE;
 extern int MIME_WKSIDX_XREF;
 extern int MIME_WKSIDX_INT_DATA_INFO;
 extern int MIME_WKSIDX_X_ID;
+extern int MIME_WKSIDX_SEC_WEBSOCKET_KEY;
+extern int MIME_WKSIDX_SEC_WEBSOCKET_VERSION;
 
 /***********************************************************************
  *                                                                     *

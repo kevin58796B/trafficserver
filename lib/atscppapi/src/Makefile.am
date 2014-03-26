@@ -18,7 +18,6 @@
 TS_PLUGIN_CPPFLAGS = \
   -D__STDC_LIMIT_MACROS=1 \
   -D__STDC_FORMAT_MACROS=1 \
-  -I$(top_builddir)/proxy/api \
   -I$(top_srcdir)/proxy/api \
   -I$(top_builddir)/lib/ts \
   -I$(top_srcdir)/lib/ts
@@ -42,7 +41,6 @@ libatscppapi_la_SOURCES = GlobalPlugin.cc \
 			  Url.cc \
 			  HttpVersion.cc \
 			  HttpMethod.cc \
-			  InitializableValue.cc \
 			  Response.cc \
 			  TransformationPlugin.cc \
 			  Logger.cc \
@@ -51,7 +49,8 @@ libatscppapi_la_SOURCES = GlobalPlugin.cc \
 			  RemapPlugin.cc \
 			  GzipDeflateTransformation.cc \
 			  GzipInflateTransformation.cc \
-			  AsyncTimer.cc
+			  AsyncTimer.cc \
+                          InterceptPlugin.cc
 
 library_includedir=$(includedir)/atscppapi
 base_include_folder = include/atscppapi/
@@ -82,4 +81,5 @@ library_include_HEADERS = $(base_include_folder)/GlobalPlugin.h \
 			  $(base_include_folder)/AsyncHttpFetch.h \
 			  $(base_include_folder)/GzipDeflateTransformation.h \
 			  $(base_include_folder)/GzipInflateTransformation.h \
-			  $(base_include_folder)/AsyncTimer.h
+			  $(base_include_folder)/AsyncTimer.h \
+			  $(base_include_folder)/InterceptPlugin.h

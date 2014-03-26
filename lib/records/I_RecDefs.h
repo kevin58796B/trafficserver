@@ -57,13 +57,13 @@ typedef int8_t RecByte;
 enum RecT
 {
   RECT_NULL = 0,
-  RECT_CONFIG,
-  RECT_PROCESS,
-  RECT_NODE,
-  RECT_CLUSTER,
-  RECT_LOCAL,
-  RECT_PLUGIN,
-  RECT_MAX
+  RECT_CONFIG = 1,
+  RECT_PROCESS = 2,
+  RECT_NODE = 4,
+  RECT_CLUSTER = 8,
+  RECT_LOCAL = 16,
+  RECT_PLUGIN = 32,
+  RECT_ALL = 63
 };
 
 enum RecDataT
@@ -87,6 +87,31 @@ enum RecPersistT
   RECP_PERSISTENT,
   RECP_NON_PERSISTENT
 };
+
+// RECP_NULL should never be used by callers of RecRegisterStat*(). You have to decide
+// whether to persist stats or not. The template goop below make sure that passing RECP_NULL
+// is a very ugle compile-time error.
+
+namespace rec {
+namespace detail {
+template <RecPersistT>
+struct is_valid_persistence;
+
+template<>
+struct is_valid_persistence<RECP_PERSISTENT>
+{
+  static const RecPersistT value = RECP_PERSISTENT;
+};
+
+template<>
+struct is_valid_persistence<RECP_NON_PERSISTENT>
+{
+  static const RecPersistT value = RECP_NON_PERSISTENT;
+};
+
+}}
+
+#define REC_PERSISTENCE_TYPE(P) rec::detail::is_valid_persistence<P>::value
 
 enum RecUpdateT
 {
