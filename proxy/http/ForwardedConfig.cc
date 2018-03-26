@@ -176,7 +176,7 @@ optStrToBitset(ts::string_view optConfigStr, ts::FixedBufferWriter &error)
     } else {
       em.add(optStr);
     }
-  } while (oCS);
+  } while (oCS.size() != ts::TextView::npos);
 
   if (em.done()) {
     return OptionBitSet();
